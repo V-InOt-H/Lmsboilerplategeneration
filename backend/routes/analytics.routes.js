@@ -4,15 +4,26 @@ const {
   getDashboardAnalytics,
   getLearnerAnalytics,
   getCourseAnalytics,
-  exportReport
+  exportReport,
+  getEnrollmentTrends
 } = require('../controllers/analytics.controller');
-const { protect, authorize } = require('../middleware/auth.middleware');
+const { protect, authorizeWithPermission } = require('../middleware/auth.middleware');
 
 router.use(protect);
 
-router.get('/dashboard', authorize('Super Admin', 'Admin', 'Trainer'), getDashboardAnalytics);
+// Dashboard analytics - Admin/HR/Trainer can view
+router.get('/dashboard', authorizeWithPermission('analytics:read'), getDashboardAnalytics);
+
+// Learner analytics - users can view their own analytics
 router.get('/learner', getLearnerAnalytics);
-router.get('/course/:id', authorize('Super Admin', 'Admin', 'Trainer'), getCourseAnalytics);
-router.get('/export', authorize('Super Admin', 'Admin', 'Trainer'), exportReport);
+
+// Course analytics - Admin/Trainer can view course-specific analytics
+router.get('/course/:id', authorizeWithPermission('analytics:read'), getCourseAnalytics);
+
+// Enrollment trends - Admin/Trainer can view
+router.get('/enrollment-trends', authorizeWithPermission('analytics:read'), getEnrollmentTrends);
+
+// Export reports - only Admin can export
+router.get('/export', authorizeWithPermission('analytics:export'), exportReport);
 
 module.exports = router;

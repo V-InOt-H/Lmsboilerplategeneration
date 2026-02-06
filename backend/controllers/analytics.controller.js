@@ -262,3 +262,63 @@ exports.exportReport = async (req, res) => {
     });
   }
 };
+
+// @desc    Get enrollment trends
+// @route   GET /api/analytics/enrollment-trends
+// @access  Private/Admin/Trainer
+exports.getEnrollmentTrends = async (req, res) => {
+  try {
+    const { period = '6months' } = req.query;
+    
+    // Calculate start date based on period
+    const months = period === '1year' ? 12 : 6;
+    const startDate = new Date();
+    startDate.setMonth(startDate.getMonth() - months);
+    
+    // Get all users with enrollment data
+    const users = await User.find({
+      'enrolledCourses.enrolledAt': { $gte: startDate }
+    }).select('enrolledCourses');
+    
+    // Aggregate enrollments by month
+    const enrollmentByMonth = {};
+    
+    // Initialize all months with 0
+    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    for (let i = months - 1; i >= 0; i--) {
+      const date = new Date();
+      date.setMonth(date.getMonth() - i);
+      const key = `${monthNames[date.getMonth()]} ${date.getFullYear()}`;
+      enrollmentByMonth[key] = 0;
+    }
+    
+    // Count enrollments per month
+    users.forEach(user => {
+      user.enrolledCourses.forEach(enrollment => {
+        if (enrollment.enrolledAt && enrollment.enrolledAt >= startDate) {
+          const date = new Date(enrollment.enrolledAt);
+          const key = `${monthNames[date.getMonth()]} ${date.getFullYear()}`;
+          if (enrollmentByMonth.hasOwnProperty(key)) {
+            enrollmentByMonth[key]++;
+          }
+        }
+      });
+    });
+    
+    // Format for chart
+    const enrollmentData = Object.entries(enrollmentByMonth).map(([name, enrollments]) => ({
+      name,
+      enrollments
+    }));
+    
+    res.status(200).json({
+      success: true,
+      enrollmentData
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+};

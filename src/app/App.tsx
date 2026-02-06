@@ -1,7 +1,9 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { AuthProvider, useAuth } from '../contexts/AuthContext';
+import { ErrorBoundary } from '../components/ui/ErrorBoundary';
 import Login from './components/auth/Login';
 import ForgotPassword from './components/auth/ForgotPassword';
+import ResetPassword from './components/auth/ResetPassword';
 import AdminDashboard from './components/admin/AdminDashboard';
 import TrainerDashboard from './components/trainer/TrainerDashboard';
 import LearnerDashboard from './components/learner/LearnerDashboard';
@@ -22,10 +24,20 @@ import OrgSettings from './components/admin/OrgSettings';
 import Analytics from './components/admin/Analytics';
 
 function AppContent() {
-  const { user, loading, isAuthenticated } = useAuth();
-  const [currentView, setCurrentView] = useState('dashboard');
-  const [selectedItem, setSelectedItem] = useState(null);
+  const { user, loading, isAuthenticated } = useAuth() as { user: any; loading: boolean; isAuthenticated: boolean };
+  const [currentView, setCurrentView] = useState<string>('dashboard');
+  const [selectedItem, setSelectedItem] = useState<any>(null);
   const [showForgotPassword, setShowForgotPassword] = useState(false);
+  const [resetToken, setResetToken] = useState<string | null>(null);
+
+  // Check for reset password token in URL
+  useEffect(() => {
+    const path = window.location.pathname;
+    const match = path.match(/^\/reset-password\/(.+)$/);
+    if (match && match[1]) {
+      setResetToken(match[1]);
+    }
+  }, []);
 
   if (loading) {
     return (
@@ -33,6 +45,11 @@ function AppContent() {
         <div className="text-white text-xl">Loading...</div>
       </div>
     );
+  }
+
+  // Show reset password page if token exists in URL
+  if (resetToken) {
+    return <ResetPassword token={resetToken} onNavigate={setCurrentView} />;
   }
 
   if (!isAuthenticated) {
@@ -45,12 +62,12 @@ function AppContent() {
   const renderContent = () => {
     switch (currentView) {
       case 'dashboard':
-        if (user.role === 'Super Admin' || user.role === 'Admin' || user.role === 'HR') {
+        if (user?.role === 'Super Admin' || user?.role === 'Admin' || user?.role === 'HR') {
           return <AdminDashboard onNavigate={setCurrentView} />;
-        } else if (user.role === 'Trainer') {
+        } else if (user?.role === 'Trainer') {
           return <TrainerDashboard onNavigate={setCurrentView} />;
         } else {
-          return <LearnerDashboard onNavigate={setCurrentView} onSelectCourse={(course) => {
+          return <LearnerDashboard onNavigate={setCurrentView} onSelectCourse={(course: any) => {
             setSelectedItem(course);
             setCurrentView('course-viewer');
           }} />;
@@ -58,7 +75,7 @@ function AppContent() {
       
       case 'courses':
         return <CourseList 
-          onSelectCourse={(course) => {
+          onSelectCourse={(course: any) => {
             setSelectedItem(course);
             setCurrentView('course-viewer');
           }}
@@ -72,7 +89,7 @@ function AppContent() {
         return <CourseViewer 
           course={selectedItem} 
           onBack={() => setCurrentView('courses')}
-          onEdit={(course) => {
+          onEdit={(course: any) => {
             setSelectedItem(course);
             setCurrentView('course-builder');
           }}
@@ -87,7 +104,7 @@ function AppContent() {
       
       case 'assessments':
         return <AssessmentList 
-          onSelectAssessment={(assessment) => {
+          onSelectAssessment={(assessment: any) => {
             setSelectedItem(assessment);
             setCurrentView('assessment-viewer');
           }}
@@ -112,7 +129,7 @@ function AppContent() {
       
       case 'knowledge':
         return <KnowledgeBase 
-          onSelectArticle={(article) => {
+          onSelectArticle={(article: any) => {
             setSelectedItem(article);
             setCurrentView('article-viewer');
           }}
@@ -126,7 +143,7 @@ function AppContent() {
         return <ArticleViewer 
           article={selectedItem}
           onBack={() => setCurrentView('knowledge')}
-          onEdit={(article) => {
+          onEdit={(article: any) => {
             setSelectedItem(article);
             setCurrentView('article-editor');
           }}
@@ -147,7 +164,7 @@ function AppContent() {
       
       case 'settings':
         return <OrgSettings />;
-      
+
       case 'analytics':
         return <Analytics />;
       
@@ -157,9 +174,9 @@ function AppContent() {
   };
 
   return (
-    <div className="size-full flex bg-gradient-to-br from-slate-950 via-indigo-950 to-slate-900 overflow-hidden">
+    <div className="h-screen w-screen flex overflow-hidden bg-gradient-to-br from-slate-950 via-indigo-950 to-slate-900">
       <Sidebar currentView={currentView} onNavigate={setCurrentView} />
-      <div className="flex-1 flex flex-col overflow-hidden">
+      <div className="flex-1 flex flex-col overflow-hidden min-w-0">
         <Header currentView={currentView} />
         <main className="flex-1 overflow-auto p-6">
           {renderContent()}
@@ -172,7 +189,9 @@ function AppContent() {
 export default function App() {
   return (
     <AuthProvider>
-      <AppContent />
+      <ErrorBoundary>
+        <AppContent />
+      </ErrorBoundary>
     </AuthProvider>
   );
 }

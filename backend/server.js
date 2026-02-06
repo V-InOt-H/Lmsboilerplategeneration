@@ -3,9 +3,8 @@ const cors = require('cors');
 const dotenv = require('dotenv');
 const cookieParser = require('cookie-parser');
 const connectDB = require('./config/db');
-
-// Load environment variables
-dotenv.config();
+const bcrypt = require('bcryptjs');
+require('dotenv').config();
 
 // Connect to database
 connectDB();
@@ -13,13 +12,85 @@ connectDB();
 const app = express();
 
 // Middleware
-app.use(cors({
-  origin: process.env.CLIENT_URL || 'http://localhost:5173',
-  credentials: true
-}));
+// CORS configuration - allow requests from frontend
+const corsOptions = {
+  origin: function (origin, callback) {
+    // Allow requests with no origin (like mobile apps, curl, postman)
+    // or from localhost for development
+    const allowedOrigins = [
+      'http://localhost:3000',
+      'http://localhost:5173',
+      'http://localhost:5174',
+      'http://127.0.0.1:5173',
+      'http://127.0.0.1:3000'
+    ];
+    
+    // Check if origin is in allowed list or if no origin (mobile/curl)
+    if (!origin || allowedOrigins.includes(origin) || origin.startsWith('http://localhost:')) {
+      callback(null, true);
+    } else {
+      // For production, only allow specific origins
+      if (process.env.NODE_ENV === 'production') {
+        callback(new Error('Not allowed by CORS'));
+      } else {
+        callback(null, true);
+      }
+    }
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
+};
+
+app.use(cors(corsOptions));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
+
+// Auto-seed users on startup
+const seedUsers = async () => {
+  const User = require('./models/User.model');
+  
+  const testUsers = [
+    {
+      name: 'Admin User',
+      email: 'admin@zoho.com',
+      password: 'admin123',
+      role: 'Super Admin',
+      department: 'Administration'
+    },
+    {
+      name: 'Trainer User',
+      email: 'trainer@zoho.com',
+      password: 'trainer123',
+      role: 'Trainer',
+      department: 'Training'
+    },
+    {
+      name: 'Learner User',
+      email: 'learner@zoho.com',
+      password: 'learner123',
+      role: 'Learner',
+      department: 'Development'
+    }
+  ];
+
+  try {
+    for (const userData of testUsers) {
+      const existingUser = await User.findOne({ email: userData.email });
+      if (!existingUser) {
+        await User.create(userData);
+        console.log(`✅ Auto-seeded user: ${userData.email}`);
+      }
+    }
+    console.log('✅ User seeding complete');
+  } catch (error) {
+    console.log('⚠️ User seeding skipped (DB may not be ready)');
+  }
+};
+
+// Call seeding after a short delay to ensure DB connection
+setTimeout(seedUsers, 1000);
 
 // Routes
 app.use('/api/auth', require('./routes/auth.routes'));

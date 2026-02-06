@@ -1,5 +1,12 @@
 const jwt = require('jsonwebtoken');
 const User = require('../models/User.model');
+const { 
+  hasPermission, 
+  hasAnyPermission, 
+  hasAllPermissions,
+  hasRoleHierarchy,
+  getRolePermissions 
+} = require('../utils/permissions');
 
 // Protect routes - verify JWT token
 exports.protect = async (req, res, next) => {
@@ -36,6 +43,9 @@ exports.protect = async (req, res, next) => {
       });
     }
 
+    // Attach permissions to user object
+    req.user.permissions = getRolePermissions(req.user.role);
+    
     next();
   } catch (error) {
     return res.status(401).json({
@@ -45,7 +55,7 @@ exports.protect = async (req, res, next) => {
   }
 };
 
-// Role-based access control
+// Role-based access control (legacy, kept for backward compatibility)
 exports.authorize = (...roles) => {
   return (req, res, next) => {
     if (!roles.includes(req.user.role)) {
@@ -54,6 +64,71 @@ exports.authorize = (...roles) => {
         message: `User role '${req.user.role}' is not authorized to access this route`
       });
     }
+    next();
+  };
+};
+
+// Enhanced authorization with permission checking
+exports.authorizeWithPermission = (...permissions) => {
+  return (req, res, next) => {
+    const userRole = req.user.role;
+    
+    // Super Admin bypass
+    if (userRole === 'Super Admin') {
+      return next();
+    }
+    
+    // Check if user has any of the required permissions
+    const hasRequired = hasAnyPermission(userRole, permissions);
+    
+    if (!hasRequired) {
+      return res.status(403).json({
+        success: false,
+        message: `Permission denied. Required: ${permissions.join(' or ')}`,
+        required: permissions,
+        userRole
+      });
+    }
+    
+    next();
+  };
+};
+
+// Check if user has minimum role level
+exports.authorizeRole = (minimumRole) => {
+  return (req, res, next) => {
+    if (!hasRoleHierarchy(req.user.role, minimumRole)) {
+      return res.status(403).json({
+        success: false,
+        message: `Access denied. Minimum role required: ${minimumRole}`,
+        required: minimumRole,
+        currentRole: req.user.role
+      });
+    }
+    next();
+  };
+};
+
+// Check if user can access a specific resource
+exports.authorizeResource = (resourceOwnerField = 'userId') => {
+  return (req, res, next) => {
+    const userRole = req.user.role;
+    const userId = req.user._id.toString();
+    
+    // Super Admin and Admin have full access
+    if (userRole === 'Super Admin' || userRole === 'Admin') {
+      return next();
+    }
+    
+    const resourceOwnerId = req.params[resourceOwnerField] || req.body[resourceOwnerField];
+    
+    if (resourceOwnerId && userId !== resourceOwnerId.toString()) {
+      return res.status(403).json({
+        success: false,
+        message: 'You can only access your own resources'
+      });
+    }
+    
     next();
   };
 };

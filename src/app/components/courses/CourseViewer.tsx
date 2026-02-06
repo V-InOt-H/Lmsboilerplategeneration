@@ -1,28 +1,92 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '../../../contexts/AuthContext';
-import { ArrowLeft, Play, Check, Lock } from 'lucide-react';
+import { ArrowLeft, Play, Check, Lock, UserPlus } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Progress } from '../ui/progress';
 import { toast } from 'sonner';
 import { coursesAPI } from '../../../services/api';
 
-export default function CourseViewer({ course, onBack, onEdit }) {
-  const { user, hasRole } = useAuth();
-  const [selectedLesson, setSelectedLesson] = useState(null);
-  const [completedLessons, setCompletedLessons] = useState(new Set());
+interface Course {
+  _id: string;
+  title: string;
+  description: string;
+  category: string;
+  level: string;
+  duration: number;
+  modules: Module[];
+}
+
+interface Module {
+  _id: string;
+  title: string;
+  lessons: Lesson[];
+}
+
+interface Lesson {
+  _id: string;
+  title: string;
+  description: string;
+  type: string;
+  content: string;
+  duration: number;
+}
+
+interface Enrollment {
+  course: string;
+  enrolledAt: string;
+  progress: number;
+  status: string;
+}
+
+interface User {
+  _id: string;
+  role: string;
+  enrolledCourses: Enrollment[];
+}
+
+interface CourseViewerProps {
+  course: Course | null;
+  onBack: () => void;
+  onEdit: (course: Course) => void;
+}
+
+export default function CourseViewer({ course, onBack, onEdit }: CourseViewerProps) {
+  const { user, hasRole } = useAuth() as { user: User | null; hasRole: (roles: string | string[]) => boolean };
+  const [selectedLesson, setSelectedLesson] = useState<Lesson | null>(null);
+  const [completedLessons, setCompletedLessons] = useState<Set<string>>(new Set());
+  const [isEnrolled, setIsEnrolled] = useState(false);
+
+  useEffect(() => {
+    if (user?.enrolledCourses && course) {
+      const enrolled = user.enrolledCourses.some((enrollment: Enrollment) => enrollment.course === course._id);
+      setIsEnrolled(enrolled);
+    }
+  }, [user, course]);
+
+  const handleEnroll = async () => {
+    if (!course) return;
+    try {
+      await coursesAPI.enroll(course._id);
+      toast.success('Successfully enrolled in course!');
+      setIsEnrolled(true);
+    } catch (err: unknown) {
+      toast.error((err as Error).message || 'Failed to enroll');
+    }
+  };
 
   if (!course) {
     return null;
   }
 
-  const handleCompleteLesson = async (lessonId) => {
+  const handleCompleteLesson = async (lessonId: string) => {
+    if (!course) return;
     try {
       const newCompleted = new Set(completedLessons);
       newCompleted.add(lessonId);
       setCompletedLessons(newCompleted);
 
       // Calculate progress
-      const totalLessons = course.modules?.reduce((sum, module) => sum + (module.lessons?.length || 0), 0) || 1;
+      const totalLessons = course.modules?.reduce((sum: number, module: Module) => sum + (module.lessons?.length || 0), 0) || 1;
       const progress = Math.round((newCompleted.size / totalLessons) * 100);
 
       await coursesAPI.updateProgress(course._id, { lessonId, progress });
@@ -44,7 +108,7 @@ export default function CourseViewer({ course, onBack, onEdit }) {
           <ArrowLeft className="w-4 h-4 mr-2" />
           Back to Courses
         </Button>
-        {hasRole('Super Admin', 'Admin', 'Trainer') && (
+        {hasRole(['Super Admin', 'Admin', 'Trainer']) && (
           <Button
             onClick={() => onEdit(course)}
             className="bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-300 border border-indigo-500/30"
@@ -69,7 +133,7 @@ export default function CourseViewer({ course, onBack, onEdit }) {
               <span className="px-3 py-1 bg-white/10 rounded-full">{course.duration} mins</span>
               <span className="px-3 py-1 bg-white/10 rounded-full">{course.modules?.length || 0} modules</span>
             </div>
-            {user.role === 'Learner' && (
+            {user && user.role === 'Learner' && isEnrolled ? (
               <div>
                 <div className="flex items-center justify-between text-sm mb-2">
                   <span className="text-indigo-300">Your Progress</span>
@@ -77,7 +141,15 @@ export default function CourseViewer({ course, onBack, onEdit }) {
                 </div>
                 <Progress value={45} className="h-2" />
               </div>
-            )}
+            ) : user && user.role === 'Learner' && !isEnrolled ? (
+              <Button
+                onClick={handleEnroll}
+                className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700"
+              >
+                <UserPlus className="w-4 h-4 mr-2" />
+                Enroll in Course
+              </Button>
+            ) : null}
           </div>
         </div>
       </div>
@@ -88,45 +160,65 @@ export default function CourseViewer({ course, onBack, onEdit }) {
         <div className="lg:col-span-1">
           <div className="bg-white/10 backdrop-blur-xl rounded-2xl border border-white/20 p-4 space-y-2 sticky top-6">
             <h3 className="text-white font-bold mb-4">Course Content</h3>
-            {course.modules?.map((module, moduleIndex) => (
-              <div key={module._id || moduleIndex}>
-                <div className="text-white font-medium mb-2 px-3 py-2 bg-white/5 rounded-lg">
-                  {moduleIndex + 1}. {module.title}
-                </div>
-                <div className="space-y-1 ml-4">
-                  {module.lessons?.map((lesson, lessonIndex) => {
-                    const isCompleted = completedLessons.has(lesson._id);
-                    const isSelected = selectedLesson?._id === lesson._id;
-                    return (
-                      <button
-                        key={lesson._id || lessonIndex}
-                        onClick={() => setSelectedLesson(lesson)}
-                        className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-all ${
-                          isSelected
-                            ? 'bg-indigo-500 text-white'
-                            : 'text-indigo-300 hover:bg-white/10'
-                        }`}
-                      >
-                        {isCompleted ? (
-                          <Check className="w-4 h-4 text-green-400" />
-                        ) : (
-                          <Play className="w-4 h-4" />
-                        )}
-                        <span className="flex-1 text-left">{lesson.title}</span>
-                        <span className="text-xs opacity-70">{lesson.duration}m</span>
-                      </button>
-                    );
-                  })}
-                </div>
+            {user && user.role === 'Learner' && !isEnrolled ? (
+              <div className="text-center py-8">
+                <Lock className="w-8 h-8 text-indigo-400 mx-auto mb-2" />
+                <p className="text-indigo-300 text-sm">Enroll to view course content</p>
               </div>
-            ))}
+            ) : (
+              course.modules?.map((module, moduleIndex) => (
+                <div key={module._id || moduleIndex}>
+                  <div className="text-white font-medium mb-2 px-3 py-2 bg-white/5 rounded-lg">
+                    {moduleIndex + 1}. {module.title}
+                  </div>
+                  <div className="space-y-1 ml-4">
+                    {module.lessons?.map((lesson, lessonIndex) => {
+                      const isCompleted = completedLessons.has(lesson._id);
+                      const isSelected = selectedLesson?._id === lesson._id;
+                      return (
+                        <button
+                          key={lesson._id || lessonIndex}
+                          onClick={() => setSelectedLesson(lesson)}
+                          className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-all ${
+                            isSelected
+                              ? 'bg-indigo-500 text-white'
+                              : 'text-indigo-300 hover:bg-white/10'
+                          }`}
+                        >
+                          {isCompleted ? (
+                            <Check className="w-4 h-4 text-green-400" />
+                          ) : (
+                            <Play className="w-4 h-4" />
+                          )}
+                          <span className="flex-1 text-left">{lesson.title}</span>
+                          <span className="text-xs opacity-70">{lesson.duration}m</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))
+            )}
           </div>
         </div>
 
         {/* Main Content - Lesson Viewer */}
         <div className="lg:col-span-2">
           <div className="bg-white/10 backdrop-blur-xl rounded-2xl border border-white/20 p-8">
-            {selectedLesson ? (
+            {user && user.role === 'Learner' && !isEnrolled ? (
+              <div className="text-center py-16">
+                <Lock className="w-16 h-16 text-indigo-400 mx-auto mb-4" />
+                <p className="text-white font-medium mb-2">Enroll to Access Course Content</p>
+                <p className="text-indigo-300 mb-6">Enroll in this course to start learning and access all lessons.</p>
+                <Button
+                  onClick={handleEnroll}
+                  className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700"
+                >
+                  <UserPlus className="w-4 h-4 mr-2" />
+                  Enroll Now
+                </Button>
+              </div>
+            ) : selectedLesson ? (
               <>
                 <h2 className="text-2xl font-bold text-white mb-4">{selectedLesson.title}</h2>
                 <p className="text-indigo-200 mb-6">{selectedLesson.description}</p>

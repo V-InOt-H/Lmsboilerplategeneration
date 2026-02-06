@@ -11,9 +11,25 @@ import {
   DropdownMenuTrigger,
 } from '../ui/dropdown-menu';
 
-export default function Header({ currentView }) {
+// Notification type
+interface Notification {
+  _id: string;
+  title: string;
+  message: string;
+  isRead: boolean;
+  createdAt: string;
+}
+
+// View type
+type ViewType = 'dashboard' | 'profile' | 'courses' | 'assessments' | 'knowledge' | 'certificates' | 'users' | 'settings' | 'analytics' | 'course-viewer' | 'course-builder' | 'assessment-viewer' | 'assessment-builder' | 'article-viewer' | 'article-editor';
+
+interface HeaderProps {
+  currentView: string;
+}
+
+export default function Header({ currentView }: HeaderProps) {
   const { logout } = useAuth();
-  const [notifications, setNotifications] = useState([]);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
 
   useEffect(() => {
@@ -30,7 +46,7 @@ export default function Header({ currentView }) {
     }
   };
 
-  const handleMarkAsRead = async (id) => {
+  const handleMarkAsRead = async (id: string) => {
     try {
       await notificationsAPI.markAsRead(id);
       fetchNotifications();
@@ -40,7 +56,7 @@ export default function Header({ currentView }) {
   };
 
   const getPageTitle = () => {
-    const titles = {
+    const titles: Record<string, string> = {
       dashboard: 'Dashboard',
       courses: 'Courses',
       assessments: 'Assessments',

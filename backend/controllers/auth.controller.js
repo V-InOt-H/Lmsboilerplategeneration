@@ -1,6 +1,7 @@
 const User = require('../models/User.model');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
+const { sendEmail } = require('../config/email');
 
 // Generate JWT Token
 const generateToken = (id) => {
@@ -185,17 +186,69 @@ exports.forgotPassword = async (req, res) => {
 
     await user.save({ validateBeforeSave: false });
 
-    // Create reset url
-    const resetUrl = `${req.protocol}://${req.get('host')}/reset-password/${resetToken}`;
+    // Create reset url - frontend URL
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+    const resetUrl = `${frontendUrl}/reset-password/${resetToken}`;
 
-    // In production, send email with resetUrl
-    // For now, just return the token
-    res.status(200).json({
-      success: true,
-      message: 'Password reset email sent',
-      resetToken, // Remove this in production
-      resetUrl // Remove this in production
+    // Email HTML content
+    const emailHtml = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <style>
+          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+          .header { background: linear-gradient(135deg, #6366f1, #8b5cf6); padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
+          .header h1 { color: white; margin: 0; }
+          .content { background: #f9fafb; padding: 30px; border-radius: 0 0 10px 10px; }
+          .button { display: inline-block; background: linear-gradient(135deg, #6366f1, #8b5cf6); color: white; padding: 15px 30px; text-decoration: none; border-radius: 8px; font-weight: bold; margin: 20px 0; }
+          .footer { text-align: center; padding: 20px; color: #6b7280; font-size: 12px; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <h1>🔐 Password Reset Request</h1>
+          </div>
+          <div class="content">
+            <p>Hi ${user.name},</p>
+            <p>You requested to reset your password for your Zoho Learning account.</p>
+            <p>Click the button below to reset your password:</p>
+            <center>
+              <a href="${resetUrl}" class="button">Reset Password</a>
+            </center>
+            <p>This link will expire in <strong>10 minutes</strong> for security purposes.</p>
+            <p>If you didn't request this password reset, please ignore this email or contact support if you have concerns.</p>
+            <p>Best regards,<br>The Zoho Learning Team</p>
+          </div>
+          <div class="footer">
+            <p>© 2026 Zoho Learning. All rights reserved.</p>
+          </div>
+        </div>
+      </body>
+      </html>
+    `;
+
+    // Send email
+    await sendEmail({
+      to: user.email,
+      subject: '🔐 Password Reset Request - Zoho Learning',
+      html: emailHtml
     });
+
+    // In development, also return the reset URL for testing
+    if (process.env.NODE_ENV === 'development') {
+      res.status(200).json({
+        success: true,
+        message: 'Password reset email sent',
+        resetUrl: resetUrl // For development only
+      });
+    } else {
+      res.status(200).json({
+        success: true,
+        message: 'Password reset email sent'
+      });
+    }
   } catch (error) {
     res.status(500).json({
       success: false,
@@ -227,11 +280,69 @@ exports.resetPassword = async (req, res) => {
       });
     }
 
+    // Validate password
+    const { password } = req.body;
+    
+    if (!password) {
+      return res.status(400).json({
+        success: false,
+        message: 'Please provide a password'
+      });
+    }
+
+    if (password.length < 6) {
+      return res.status(400).json({
+        success: false,
+        message: 'Password must be at least 6 characters'
+      });
+    }
+
     // Set new password
-    user.password = req.body.password;
+    user.password = password;
     user.resetPasswordToken = undefined;
     user.resetPasswordExpire = undefined;
     await user.save();
+
+    // Send confirmation email
+    const emailHtml = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <style>
+          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+          .header { background: linear-gradient(135deg, #10b981, #059669); padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
+          .header h1 { color: white; margin: 0; }
+          .content { background: #f9fafb; padding: 30px; border-radius: 0 0 10px 10px; }
+          .button { display: inline-block; background: linear-gradient(135deg, #6366f1, #8b5cf6); color: white; padding: 15px 30px; text-decoration: none; border-radius: 8px; font-weight: bold; margin: 20px 0; }
+          .footer { text-align: center; padding: 20px; color: #6b7280; font-size: 12px; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <h1>✅ Password Changed Successfully</h1>
+          </div>
+          <div class="content">
+            <p>Hi ${user.name},</p>
+            <p>Your password has been successfully changed for your Zoho Learning account.</p>
+            <p>If you made this change, you can safely ignore this email.</p>
+            <p>If you did not make this change, please contact our support team immediately.</p>
+            <p>Best regards,<br>The Zoho Learning Team</p>
+          </div>
+          <div class="footer">
+            <p>© 2026 Zoho Learning. All rights reserved.</p>
+          </div>
+        </div>
+      </body>
+      </html>
+    `;
+
+    sendEmail({
+      to: user.email,
+      subject: '✅ Password Changed Successfully - Zoho Learning',
+      html: emailHtml
+    });
 
     const token = generateToken(user._id);
 

@@ -2,7 +2,26 @@ import { useAuth } from '../../../contexts/AuthContext';
 import { ArrowLeft, Edit, Eye } from 'lucide-react';
 import { Button } from '../ui/button';
 
-export default function ArticleViewer({ article, onBack, onEdit }) {
+// Article type
+interface Article {
+  _id?: string;
+  title: string;
+  content: string;
+  category: string;
+  views?: number;
+  createdAt: string;
+  tags?: string[];
+  author?: string;
+}
+
+// Props type
+interface ArticleViewerProps {
+  article: Article | null;
+  onBack: () => void;
+  onEdit: (article: Article) => void;
+}
+
+export default function ArticleViewer({ article, onBack, onEdit }: ArticleViewerProps) {
   const { hasRole } = useAuth();
 
   if (!article) return null;
@@ -47,7 +66,7 @@ export default function ArticleViewer({ article, onBack, onEdit }) {
           <div className="mt-8 pt-6 border-t border-white/10">
             <p className="text-indigo-300 text-sm mb-2">Tags:</p>
             <div className="flex flex-wrap gap-2">
-              {article.tags.map((tag, idx) => (
+              {article.tags.map((tag: string, idx: number) => (
                 <span
                   key={idx}
                   className="px-3 py-1 bg-indigo-500/20 text-indigo-300 rounded-full text-sm"

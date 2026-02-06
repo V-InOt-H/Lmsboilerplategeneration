@@ -1,5 +1,28 @@
 // API Service for Backend Communication
-const API_URL = 'http://localhost:5000/api';
+// Detect the API URL based on the current environment
+const getApiUrl = () => {
+  // If there's a VITE_API_URL environment variable, use it
+  if (import.meta.env.VITE_API_URL) {
+    return import.meta.env.VITE_API_URL;
+  }
+  
+  // Default to localhost:5000 for development
+  // Get the current host and port from the browser
+  const { protocol, hostname } = window.location;
+  
+  // For development, typically frontend runs on 5173, backend on 5000
+  // Check if we're running on the same port as backend
+  const backendPort = hostname === 'localhost' ? 5000 : 5000;
+  
+  return `${protocol}//${hostname}:${backendPort}/api`;
+};
+
+const API_URL = getApiUrl();
+
+// Log API URL in development
+if (import.meta.env.DEV) {
+  console.log('🔗 API URL:', API_URL);
+}
 
 // Get token from localStorage
 const getToken = () => localStorage.getItem('token');
@@ -22,11 +45,24 @@ const apiRequest = async (endpoint, options = {}) => {
     const data = await response.json();
 
     if (!response.ok) {
-      throw new Error(data.message || 'API request failed');
+      // Handle specific error cases
+      if (response.status === 403) {
+        throw new Error('Permission denied. You may not have access to this resource.');
+      }
+      if (response.status === 401) {
+        throw new Error('Unauthorized. Please log in again.');
+      }
+      throw new Error(data.message || `API request failed with status ${response.status}`);
     }
 
     return data;
   } catch (error) {
+    // Provide more helpful error messages
+    if (error.name === 'TypeError' && error.message.includes('fetch')) {
+      console.error('🚫 CORS or Network Error:', error);
+      throw new Error('Failed to connect to server. Please check your internet connection and ensure the backend is running.');
+    }
+    
     console.error('API Error:', error);
     throw error;
   }
@@ -69,8 +105,25 @@ export const usersAPI = {
     method: 'PUT',
     body: JSON.stringify(userData)
   }),
-  delete: (id) => apiRequest(`/users/${id}`, { method: 'DELETE' })
+  delete: (id) => apiRequest(`/users/${id}`, { method: 'DELETE' }),
+  updateProfile: (profileData) => apiRequest('/users/profile', {
+    method: 'PUT',
+    body: JSON.stringify(profileData)
+  }),
+  changePassword: (passwordData) => apiRequest('/users/change-password', {
+    method: 'PUT',
+    body: JSON.stringify(passwordData)
+  })
 };
+
+// Role options for user management
+export const ROLE_OPTIONS = [
+  { value: 'Super Admin', label: 'Super Admin' },
+  { value: 'Admin', label: 'Admin' },
+  { value: 'HR', label: 'HR' },
+  { value: 'Trainer', label: 'Trainer' },
+  { value: 'Learner', label: 'Learner' }
+];
 
 // Courses API
 export const coursesAPI = {
@@ -151,6 +204,7 @@ export const analyticsAPI = {
   getDashboard: () => apiRequest('/analytics/dashboard'),
   getLearner: () => apiRequest('/analytics/learner'),
   getCourse: (id) => apiRequest(`/analytics/course/${id}`),
+  getEnrollmentTrends: (period = '6months') => apiRequest(`/analytics/enrollment-trends?period=${period}`),
   export: (type) => apiRequest(`/analytics/export?type=${type}`)
 };
 

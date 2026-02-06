@@ -5,21 +5,34 @@ const {
   getUser,
   createUser,
   updateUser,
-  deleteUser
+  deleteUser,
+  updateProfile,
+  changePassword
 } = require('../controllers/user.controller');
-const { protect, authorize } = require('../middleware/auth.middleware');
+const { protect, authorizeWithPermission, authorizeResource } = require('../middleware/auth.middleware');
 
 router.use(protect);
 
+// Get all users - requires users:read permission (Admin/HR can see all users)
 router
   .route('/')
-  .get(authorize('Super Admin', 'Admin', 'HR'), getUsers)
-  .post(authorize('Super Admin', 'Admin', 'HR'), createUser);
+  .get(authorizeWithPermission('users:read'), getUsers)
+  .post(authorizeWithPermission('users:create'), createUser);
 
+// Get single user - requires authentication (users can see their own profile)
 router
   .route('/:id')
-  .get(getUser)
-  .put(authorize('Super Admin', 'Admin', 'HR'), updateUser)
-  .delete(authorize('Super Admin', 'Admin'), deleteUser);
+  .get(authorizeResource('userId'), getUser)
+  .put(authorizeResource('userId'), authorizeWithPermission('users:update'), updateUser)
+  .delete(authorizeWithPermission('users:delete'), deleteUser);
+
+// Profile routes - for current user
+router
+  .route('/profile')
+  .put(updateProfile);
+
+router
+  .route('/change-password')
+  .put(changePassword);
 
 module.exports = router;

@@ -1,14 +1,42 @@
 import { useState, useEffect } from 'react';
-import { analyticsAPI } from '../../../services/api';
-import { BookOpen, Users, TrendingUp, Clock } from 'lucide-react';
+import { analyticsAPI, coursesAPI } from '../../../services/api';
+import { BookOpen, Users, TrendingUp, Clock, Trash2, Edit } from 'lucide-react';
 import { Button } from '../ui/button';
+import { toast } from 'sonner';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '../ui/alert-dialog';
 
-export default function TrainerDashboard({ onNavigate }) {
-  const [analytics, setAnalytics] = useState(null);
+interface TrainerDashboardProps {
+  onNavigate: (view: string) => void;
+}
+
+interface Course {
+  _id: string;
+  title: string;
+  description: string;
+  category: string;
+  status: string;
+  modules: any[];
+}
+
+export default function TrainerDashboard({ onNavigate }: TrainerDashboardProps) {
+  const [analytics, setAnalytics] = useState<any>(null);
+  const [courses, setCourses] = useState<Course[]>([]);
   const [loading, setLoading] = useState(true);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [courseToDelete, setCourseToDelete] = useState<Course | null>(null);
 
   useEffect(() => {
     fetchAnalytics();
+    fetchMyCourses();
   }, []);
 
   const fetchAnalytics = async () => {
@@ -17,8 +45,38 @@ export default function TrainerDashboard({ onNavigate }) {
       setAnalytics(response.analytics);
     } catch (err) {
       console.error('Failed to fetch analytics:', err);
+    }
+  };
+
+  const fetchMyCourses = async () => {
+    try {
+      const response = await coursesAPI.getAll({});
+      setCourses(response.courses || []);
+    } catch (err) {
+      console.error('Failed to fetch courses:', err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleDeleteClick = (course: Course) => {
+    setCourseToDelete(course);
+    setDeleteDialogOpen(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!courseToDelete) return;
+    
+    try {
+      await coursesAPI.delete(courseToDelete._id);
+      toast.success('Course deleted successfully!');
+      fetchMyCourses();
+      fetchAnalytics();
+    } catch (err) {
+      toast.error((err as Error).message || 'Failed to delete course');
+    } finally {
+      setDeleteDialogOpen(false);
+      setCourseToDelete(null);
     }
   };
 
@@ -111,11 +169,69 @@ export default function TrainerDashboard({ onNavigate }) {
         </div>
       </div>
 
+      {/* My Courses */}
+      <div className="bg-white/10 backdrop-blur-xl rounded-2xl border border-white/20 p-6">
+        <div className="flex items-center justify-between mb-6">
+          <h3 className="text-xl font-bold text-white">My Courses</h3>
+          <Button
+            onClick={() => onNavigate('courses')}
+            className="bg-purple-500/20 hover:bg-purple-500/30 text-purple-300 border border-purple-500/30"
+          >
+            <Edit className="w-4 h-4 mr-2" />
+            Manage All
+          </Button>
+        </div>
+        
+        {courses.length === 0 ? (
+          <div className="text-center py-8">
+            <BookOpen className="w-12 h-12 text-indigo-400 mx-auto mb-4" />
+            <p className="text-indigo-300 mb-4">You haven't created any courses yet</p>
+            <Button
+              onClick={() => onNavigate('courses')}
+              className="bg-gradient-to-r from-indigo-500 to-purple-600"
+            >
+              Create Your First Course
+            </Button>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {courses.slice(0, 6).map((course) => (
+              <div key={course._id} className="bg-white/5 rounded-xl p-4 border border-white/10">
+                <div className="flex items-start justify-between mb-3">
+                  <div>
+                    <h4 className="text-white font-medium mb-1 line-clamp-1">{course.title}</h4>
+                    <p className="text-indigo-300 text-sm">{course.category}</p>
+                  </div>
+                  <span className={`px-2 py-1 rounded-lg text-xs font-medium ${
+                    course.status === 'Published' ? 'bg-green-500/20 text-green-300' : 'bg-yellow-500/20 text-yellow-300'
+                  }`}>
+                    {course.status}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-indigo-300 text-sm">
+                    {course.modules?.length || 0} modules
+                  </span>
+                  <Button
+                    onClick={() => handleDeleteClick(course)}
+                    variant="ghost"
+                    size="icon"
+                    className="text-red-400 hover:text-red-300 hover:bg-red-500/10"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
       {/* Recent Activity */}
       <div className="bg-white/10 backdrop-blur-xl rounded-2xl border border-white/20 p-6">
         <h3 className="text-xl font-bold text-white mb-6">Recent Enrollments</h3>
         <div className="space-y-3">
-          {analytics?.recentEnrollments?.slice(0, 5).map((enrollment) => (
+          {analytics?.recentEnrollments?.slice(0, 5).map((enrollment: any) => (
             <div key={enrollment._id} className="flex items-center justify-between p-4 bg-white/5 rounded-xl">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 bg-gradient-to-br from-indigo-400 to-purple-500 rounded-full flex items-center justify-center text-white font-bold">
@@ -132,6 +248,30 @@ export default function TrainerDashboard({ onNavigate }) {
           )}
         </div>
       </div>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent className="bg-gray-900 border-white/20">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-white">Delete Course</AlertDialogTitle>
+            <AlertDialogDescription className="text-indigo-300">
+              Are you sure you want to delete "{courseToDelete?.title}"? This action cannot be undone and all enrolled users will lose access to this course.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="bg-white/10 text-white hover:bg-white/20">
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteConfirm}
+              className="bg-red-500 hover:bg-red-600 text-white"
+            >
+              Delete Course
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
+

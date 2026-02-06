@@ -4,13 +4,13 @@ const {
   getSettings,
   updateSettings
 } = require('../controllers/settings.controller');
-const { protect, authorize } = require('../middleware/auth.middleware');
+const { protect, authorizeWithPermission } = require('../middleware/auth.middleware');
 
 router.use(protect);
-router.use(authorize('Super Admin', 'Admin'));
 
+// Settings - only Super Admin can view/update settings
 router.route('/')
-  .get(getSettings)
-  .put(updateSettings);
+  .get(authorizeWithPermission('settings:read'), getSettings)
+  .put(authorizeWithPermission('settings:update'), updateSettings);
 
 module.exports = router;

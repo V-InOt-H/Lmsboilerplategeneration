@@ -1,17 +1,61 @@
 import { useState, useEffect } from 'react';
 import { coursesAPI } from '../../../services/api';
 import { useAuth } from '../../../contexts/AuthContext';
-import { BookOpen, Plus, Search, Filter } from 'lucide-react';
+import { usePermission } from '../../../hooks/usePermission';
+import { BookOpen, Plus, Search, Filter, Trash2, Edit } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { toast } from 'sonner';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '../ui/alert-dialog';
 
-export default function CourseList({ onSelectCourse, onCreateCourse }) {
-  const { hasRole } = useAuth();
-  const [courses, setCourses] = useState([]);
+interface Course {
+  _id: string;
+  title: string;
+  description: string;
+  category: string;
+  level: string;
+  duration: number;
+  status: string;
+  modules: any[];
+  enrolledUsers: any[];
+}
+
+interface Enrollment {
+  course: string;
+  enrolledAt: string;
+  progress: number;
+  status: string;
+}
+
+interface User {
+  _id: string;
+  role: string;
+  enrolledCourses: Enrollment[];
+}
+
+interface CourseListProps {
+  onSelectCourse: (course: Course) => void;
+  onCreateCourse: () => void;
+}
+
+export default function CourseList({ onSelectCourse, onCreateCourse }: CourseListProps) {
+  const { user } = useAuth() as { user: User | null };
+  const { isRole } = usePermission();
+  const [courses, setCourses] = useState<Course[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [filter, setFilter] = useState('all');
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [courseToDelete, setCourseToDelete] = useState<Course | null>(null);
 
   useEffect(() => {
     fetchCourses();
@@ -30,14 +74,39 @@ export default function CourseList({ onSelectCourse, onCreateCourse }) {
     }
   };
 
-  const handleEnroll = async (courseId) => {
+  const handleEnroll = async (courseId: string) => {
     try {
       await coursesAPI.enroll(courseId);
       toast.success('Successfully enrolled in course!');
       fetchCourses();
-    } catch (err) {
-      toast.error(err.message || 'Failed to enroll');
+    } catch (err: unknown) {
+      toast.error((err as Error).message || 'Failed to enroll');
     }
+  };
+
+  const handleDeleteClick = (course: Course) => {
+    setCourseToDelete(course);
+    setDeleteDialogOpen(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!courseToDelete) return;
+    
+    try {
+      await coursesAPI.delete(courseToDelete._id);
+      toast.success('Course deleted successfully!');
+      fetchCourses();
+    } catch (err: unknown) {
+      toast.error((err as Error).message || 'Failed to delete course');
+    } finally {
+      setDeleteDialogOpen(false);
+      setCourseToDelete(null);
+    }
+  };
+
+  const isEnrolled = (courseId: string) => {
+    if (!user?.enrolledCourses) return false;
+    return user.enrolledCourses.some((enrollment: Enrollment) => enrollment.course === courseId);
   };
 
   const filteredCourses = courses.filter(course =>
@@ -57,7 +126,7 @@ export default function CourseList({ onSelectCourse, onCreateCourse }) {
           <h2 className="text-2xl font-bold text-white">Courses</h2>
           <p className="text-indigo-300 mt-1">Explore and enroll in courses</p>
         </div>
-        {hasRole('Super Admin', 'Admin', 'Trainer') && (
+        {isRole('Super Admin', 'Admin', 'Trainer') && (
           <Button
             onClick={onCreateCourse}
             className="bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700"
@@ -95,7 +164,7 @@ export default function CourseList({ onSelectCourse, onCreateCourse }) {
           >
             Published
           </Button>
-          {hasRole('Super Admin', 'Admin', 'Trainer') && (
+          {isRole('Super Admin', 'Admin', 'Trainer') && (
             <Button
               onClick={() => setFilter('Draft')}
               variant={filter === 'Draft' ? 'default' : 'ghost'}
@@ -159,17 +228,61 @@ export default function CourseList({ onSelectCourse, onCreateCourse }) {
                   <span>{course.enrolledUsers?.length || 0} enrolled</span>
                 </div>
 
-                <Button
-                  onClick={() => onSelectCourse(course)}
-                  className="w-full bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-300 border border-indigo-500/30"
-                >
-                  View Course
-                </Button>
+                {user?.role === 'Learner' && !isEnrolled(course._id) ? (
+                  <Button
+                    onClick={() => handleEnroll(course._id)}
+                    className="w-full bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700"
+                  >
+                    Enroll Now
+                  </Button>
+                ) : (
+                  <div className="flex gap-2">
+                    <Button
+                      onClick={() => onSelectCourse(course)}
+                      className="flex-1 bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-300 border border-indigo-500/30"
+                    >
+                      View Course
+                    </Button>
+                    {isRole('Super Admin', 'Admin', 'Trainer') && (
+                      <Button
+                        onClick={() => handleDeleteClick(course)}
+                        variant="destructive"
+                        size="icon"
+                        className="bg-red-500/20 hover:bg-red-500/30 text-red-300 border border-red-500/30"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
           ))}
         </div>
       )}
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent className="bg-gray-900 border-white/20">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-white">Delete Course</AlertDialogTitle>
+            <AlertDialogDescription className="text-indigo-300">
+              Are you sure you want to delete "{courseToDelete?.title}"? This action cannot be undone and all enrolled users will lose access to this course.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="bg-white/10 text-white hover:bg-white/20">
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteConfirm}
+              className="bg-red-500 hover:bg-red-600 text-white"
+            >
+              Delete Course
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

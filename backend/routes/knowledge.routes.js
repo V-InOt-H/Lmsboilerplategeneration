@@ -7,19 +7,21 @@ const {
   updateArticle,
   deleteArticle
 } = require('../controllers/knowledge.controller');
-const { protect, authorize } = require('../middleware/auth.middleware');
+const { protect, authorizeWithPermission, authorizeResource } = require('../middleware/auth.middleware');
 
 router.use(protect);
 
+// Get all articles - requires authentication (all roles can read)
 router
   .route('/')
-  .get(getArticles)
-  .post(authorize('Super Admin', 'Admin', 'Trainer'), createArticle);
+  .get(authorizeWithPermission('knowledge:read'), getArticles)
+  .post(authorizeWithPermission('knowledge:create'), createArticle);
 
+// Get single article - requires authentication
 router
   .route('/:id')
-  .get(getArticle)
-  .put(authorize('Super Admin', 'Admin', 'Trainer'), updateArticle)
-  .delete(authorize('Super Admin', 'Admin'), deleteArticle);
+  .get(authorizeWithPermission('knowledge:read'), getArticle)
+  .put(authorizeResource('articleId'), authorizeWithPermission('knowledge:update'), updateArticle)
+  .delete(authorizeWithPermission('knowledge:delete'), deleteArticle);
 
 module.exports = router;

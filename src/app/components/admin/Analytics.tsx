@@ -6,11 +6,13 @@ import { toast } from 'sonner';
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 
 export default function Analytics() {
-  const [analytics, setAnalytics] = useState(null);
+  const [analytics, setAnalytics] = useState<any>(null);
+  const [enrollmentData, setEnrollmentData] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     fetchAnalytics();
+    fetchEnrollmentTrends();
   }, []);
 
   const fetchAnalytics = async () => {
@@ -20,12 +22,42 @@ export default function Analytics() {
     } catch (err) {
       console.error('Failed to fetch analytics:', err);
       toast.error('Failed to load analytics');
+    }
+  };
+
+  const fetchEnrollmentTrends = async () => {
+    try {
+      const response = await analyticsAPI.getEnrollmentTrends();
+      if (response.enrollmentData && response.enrollmentData.length > 0) {
+        setEnrollmentData(response.enrollmentData);
+      } else {
+        // Fallback to empty data if no enrollments yet
+        setEnrollmentData([
+          { name: 'Jan', enrollments: 0 },
+          { name: 'Feb', enrollments: 0 },
+          { name: 'Mar', enrollments: 0 },
+          { name: 'Apr', enrollments: 0 },
+          { name: 'May', enrollments: 0 },
+          { name: 'Jun', enrollments: 0 }
+        ]);
+      }
+    } catch (err) {
+      console.error('Failed to fetch enrollment trends:', err);
+      // Use empty data on error
+      setEnrollmentData([
+        { name: 'Jan', enrollments: 0 },
+        { name: 'Feb', enrollments: 0 },
+        { name: 'Mar', enrollments: 0 },
+        { name: 'Apr', enrollments: 0 },
+        { name: 'May', enrollments: 0 },
+        { name: 'Jun', enrollments: 0 }
+      ]);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleExport = async (type) => {
+  const handleExport = async (type: string) => {
     try {
       await analyticsAPI.export(type);
       toast.success('Export started!');
@@ -39,15 +71,6 @@ export default function Analytics() {
   }
 
   const overview = analytics?.overview || {};
-
-  const enrollmentData = [
-    { name: 'Jan', enrollments: 45 },
-    { name: 'Feb', enrollments: 52 },
-    { name: 'Mar', enrollments: 68 },
-    { name: 'Apr', enrollments: 73 },
-    { name: 'May', enrollments: 85 },
-    { name: 'Jun', enrollments: 92 }
-  ];
 
   const completionData = [
     { name: 'Completed', value: overview.completedCourses || 0, color: '#10b981' },
@@ -184,3 +207,4 @@ export default function Analytics() {
     </div>
   );
 }
+

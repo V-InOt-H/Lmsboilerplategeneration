@@ -68,6 +68,41 @@ const settingsSchema = new mongoose.Schema({
       type: Number,
       default: 5
     }
+  },
+  learningPolicies: {
+    requireCourseApproval: {
+      type: Boolean,
+      default: false
+    },
+    allowSelfEnrollment: {
+      type: Boolean,
+      default: true
+    },
+    defaultCourseVisibility: {
+      type: String,
+      enum: ['public', 'private', 'hidden'],
+      default: 'public'
+    },
+    certificateValidity: {
+      type: Number,
+      default: 0 // 0 = lifetime
+    },
+    requireAssessmentPassing: {
+      type: Boolean,
+      default: true
+    },
+    assessmentPassingScore: {
+      type: Number,
+      default: 70
+    },
+    enableGamification: {
+      type: Boolean,
+      default: false
+    },
+    showLeaderboard: {
+      type: Boolean,
+      default: false
+    }
   }
 }, {
   timestamps: true

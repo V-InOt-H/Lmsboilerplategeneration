@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
@@ -6,20 +6,29 @@ import { GraduationCap, Mail, ArrowLeft, CheckCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { authAPI } from '../../../services/api';
 
-export default function ForgotPassword({ onBack }) {
+interface ForgotPasswordProps {
+  onBack: () => void;
+}
+
+export default function ForgotPassword({ onBack }: ForgotPasswordProps) {
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
   const [sent, setSent] = useState(false);
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
 
     try {
-      await authAPI.forgotPassword(email);
+      const response = await authAPI.forgotPassword(email);
       setSent(true);
       toast.success('Password reset email sent!');
-    } catch (err) {
+      
+      // In development mode, log the reset URL
+      if (response.resetUrl) {
+        console.log('Reset URL:', response.resetUrl);
+      }
+    } catch (err: any) {
       toast.error(err.message || 'Failed to send reset email');
     } finally {
       setLoading(false);
@@ -49,6 +58,21 @@ export default function ForgotPassword({ onBack }) {
                 <p className="text-indigo-200 text-sm">
                   We've sent a password reset link to <strong>{email}</strong>
                 </p>
+              </div>
+              
+              {/* Development: Show reset link for testing */}
+              <div className="mt-4 p-4 bg-yellow-500/20 border border-yellow-500/50 rounded-xl">
+                <p className="text-xs text-yellow-200 mb-2 font-medium">Development Mode - Click to test:</p>
+                <a 
+                  href={`http://localhost:5173/reset-password/test-token`}
+                  className="text-xs text-yellow-300 underline break-all hover:text-yellow-200"
+                  onClick={(e: React.MouseEvent) => {
+                    e.preventDefault();
+                    alert('In development mode, check the console for the reset URL after submitting the form.');
+                  }}
+                >
+                  Test Reset Password Page
+                </a>
               </div>
               
               <Button

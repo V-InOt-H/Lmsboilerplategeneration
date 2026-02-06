@@ -1,12 +1,17 @@
 import { useState, useEffect } from 'react';
-import { analyticsAPI, coursesAPI } from '../../../services/api';
+import { analyticsAPI } from '../../../services/api';
 import { BookOpen, Award, Clock, TrendingUp, Play } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Progress } from '../ui/progress';
 
-export default function LearnerDashboard({ onNavigate, onSelectCourse }) {
-  const [analytics, setAnalytics] = useState(null);
-  const [enrolledCourses, setEnrolledCourses] = useState([]);
+interface LearnerDashboardProps {
+  onNavigate: (view: string) => void;
+  onSelectCourse: (course: any) => void;
+}
+
+export default function LearnerDashboard({ onNavigate, onSelectCourse }: LearnerDashboardProps) {
+  const [analytics, setAnalytics] = useState<any>(null);
+  const [enrolledCourses, setEnrolledCourses] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -15,10 +20,7 @@ export default function LearnerDashboard({ onNavigate, onSelectCourse }) {
 
   const fetchData = async () => {
     try {
-      const [analyticsData, coursesData] = await Promise.all([
-        analyticsAPI.getLearner(),
-        coursesAPI.getAll()
-      ]);
+      const analyticsData = await analyticsAPI.getLearner();
       setAnalytics(analyticsData.analytics);
       setEnrolledCourses(analyticsData.analytics?.enrolledCourses || []);
     } catch (err) {
