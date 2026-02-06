@@ -1,16 +1,28 @@
 import { useState, useEffect } from 'react';
 import { assessmentsAPI } from '../../../services/api';
 import { useAuth } from '../../../contexts/AuthContext';
-import { ClipboardCheck, Plus, Search } from 'lucide-react';
+import { ClipboardCheck, Plus, Search, Trash2 } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { toast } from 'sonner';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '../ui/alert-dialog';
 
-export default function AssessmentList({ onSelectAssessment, onCreateAssessment }) {
+export default function AssessmentList({ onSelectAssessment, onCreateAssessment }: { onSelectAssessment: (assessment: any) => void; onCreateAssessment: () => void }) {
   const { hasRole } = useAuth();
-  const [assessments, setAssessments] = useState([]);
+  const [assessments, setAssessments] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [assessmentToDelete, setAssessmentToDelete] = useState<any>(null);
 
   useEffect(() => {
     fetchAssessments();
@@ -25,6 +37,27 @@ export default function AssessmentList({ onSelectAssessment, onCreateAssessment 
       toast.error('Failed to load assessments');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleDeleteClick = (e: React.MouseEvent, assessment: any) => {
+    e.stopPropagation();
+    setAssessmentToDelete(assessment);
+    setDeleteDialogOpen(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!assessmentToDelete) return;
+    
+    try {
+      await assessmentsAPI.delete(assessmentToDelete._id);
+      toast.success('Assessment deleted successfully!');
+      fetchAssessments();
+    } catch (err) {
+      toast.error((err as Error).message || 'Failed to delete assessment');
+    } finally {
+      setDeleteDialogOpen(false);
+      setAssessmentToDelete(null);
     }
   };
 
@@ -72,24 +105,75 @@ export default function AssessmentList({ onSelectAssessment, onCreateAssessment 
           {filteredAssessments.map((assessment) => (
             <div
               key={assessment._id}
-              className="bg-white/10 backdrop-blur-xl rounded-2xl border border-white/20 p-6 hover:border-indigo-500/50 transition-all"
+              className="bg-white/10 backdrop-blur-xl rounded-2xl border border-white/20 p-6 hover:border-indigo-500/50 transition-all group"
             >
+              <div className="flex items-start justify-between mb-3">
+                <ClipboardCheck className="w-8 h-8 text-indigo-400" />
+                <div className="flex items-center gap-2">
+                  <span className={`px-2 py-1 rounded-lg text-xs font-medium ${
+                    assessment.status === 'Published' 
+                      ? 'bg-green-500/20 text-green-300' 
+                      : 'bg-yellow-500/20 text-yellow-300'
+                  }`}>
+                    {assessment.status}
+                  </span>
+                  {hasRole('Super Admin', 'Admin', 'Trainer') && (
+                    <Button
+                      variant="destructive"
+                      size="icon"
+                      className="bg-red-500/20 hover:bg-red-500/30 text-red-300 border border-red-500/30 opacity-0 group-hover:opacity-100 transition-opacity"
+                      onClick={(e: React.MouseEvent) => handleDeleteClick(e, assessment)}
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  )}
+                </div>
+              </div>
               <h3 className="text-white font-bold text-lg mb-2">{assessment.title}</h3>
               <p className="text-indigo-200 text-sm mb-4">{assessment.description}</p>
               <div className="flex items-center justify-between text-sm text-indigo-300 mb-4">
                 <span>{assessment.questions?.length || 0} questions</span>
                 <span>{assessment.duration} mins</span>
               </div>
-              <Button
-                onClick={() => onSelectAssessment(assessment)}
-                className="w-full bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-300 border border-indigo-500/30"
-              >
-                Start Assessment
-              </Button>
+              {assessment.status === 'Draft' ? (
+                <div className="bg-yellow-500/20 text-yellow-300 text-sm font-medium px-3 py-2 rounded-lg text-center">
+                  Coming Soon
+                </div>
+              ) : (
+                <Button
+                  onClick={() => onSelectAssessment(assessment)}
+                  className="w-full bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-300 border border-indigo-500/30"
+                >
+                  Start Assessment
+                </Button>
+              )}
             </div>
           ))}
         </div>
       )}
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent className="bg-gray-900 border-white/20">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-white">Delete Assessment</AlertDialogTitle>
+            <AlertDialogDescription className="text-indigo-300">
+              Are you sure you want to delete "{assessmentToDelete?.title}"? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="bg-white/10 text-white hover:bg-white/20">
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteConfirm}
+              className="bg-red-500 hover:bg-red-600 text-white"
+            >
+              Delete Assessment
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

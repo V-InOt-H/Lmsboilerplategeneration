@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { analyticsAPI } from '../../../services/api';
-import { Users, BookOpen, Award, TrendingUp, UserCheck, FileText, Download } from 'lucide-react';
+import { Users, BookOpen, Award, TrendingUp, UserCheck, FileText, Download, ClipboardCheck } from 'lucide-react';
 import { Button } from '../ui/button';
 
 interface AdminDashboardProps {
@@ -23,9 +23,26 @@ interface AssessmentStats {
   averageScore: string;
 }
 
+interface RecentAssessmentResult {
+  _id: string;
+  user: {
+    name: string;
+    email: string;
+  };
+  assessment: {
+    title: string;
+  };
+  score: number;
+  percentage: number;
+  passed: boolean;
+  attemptNumber: number;
+  createdAt: string;
+}
+
 interface AnalyticsData {
   overview: Overview;
   assessments: AssessmentStats;
+  recentAssessmentResults?: RecentAssessmentResult[];
   topCourses?: any[];
 }
 
@@ -40,7 +57,6 @@ export default function AdminDashboard({ onNavigate }: AdminDashboardProps) {
   const fetchAnalytics = async () => {
     try {
       const response = await analyticsAPI.getDashboard();
-      // Cast the response to match our interface
       const analyticsData = response.analytics as AnalyticsData;
       setAnalytics(analyticsData);
     } catch (err) {
@@ -183,6 +199,75 @@ export default function AdminDashboard({ onNavigate }: AdminDashboardProps) {
         </div>
       </div>
 
+      {/* Recent Assessment Results */}
+      <div className="bg-white/10 backdrop-blur-xl rounded-2xl border border-white/20 p-6">
+        <div className="flex items-center justify-between mb-6">
+          <h3 className="text-xl font-bold text-white">Recent Assessment Results</h3>
+          <Button
+            onClick={() => onNavigate('assessments')}
+            variant="ghost"
+            className="text-indigo-300 hover:text-white hover:bg-white/10"
+          >
+            View All
+          </Button>
+        </div>
+
+        {analytics?.recentAssessmentResults && analytics.recentAssessmentResults.length > 0 ? (
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="text-left text-indigo-300 text-sm border-b border-white/10">
+                  <th className="pb-3 font-medium">Learner</th>
+                  <th className="pb-3 font-medium">Assessment</th>
+                  <th className="pb-3 font-medium">Score</th>
+                  <th className="pb-3 font-medium">Status</th>
+                  <th className="pb-3 font-medium">Attempt</th>
+                  <th className="pb-3 font-medium">Date</th>
+                </tr>
+              </thead>
+              <tbody className="text-white">
+                {analytics.recentAssessmentResults.slice(0, 5).map((result: RecentAssessmentResult) => (
+                  <tr key={result._id} className="border-b border-white/5 hover:bg-white/5">
+                    <td className="py-3">
+                      <div>
+                        <p className="font-medium">{result.user?.name || 'Unknown'}</p>
+                        <p className="text-indigo-300 text-xs">{result.user?.email}</p>
+                      </div>
+                    </td>
+                    <td className="py-3">
+                      <div className="flex items-center gap-2">
+                        <ClipboardCheck className="w-4 h-4 text-indigo-400" />
+                        <span>{result.assessment?.title || 'Unknown'}</span>
+                      </div>
+                    </td>
+                    <td className="py-3 font-bold">{result.percentage?.toFixed(0)}%</td>
+                    <td className="py-3">
+                      <span className={`px-2 py-1 rounded-lg text-xs font-medium ${
+                        result.passed 
+                          ? 'bg-green-500/20 text-green-300' 
+                          : 'bg-red-500/20 text-red-300'
+                      }`}>
+                        {result.passed ? 'Passed' : 'Failed'}
+                      </span>
+                    </td>
+                    <td className="py-3 text-indigo-300">#{result.attemptNumber}</td>
+                    <td className="py-3 text-indigo-300 text-sm">
+                      {new Date(result.createdAt).toLocaleDateString()}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <div className="text-center py-12">
+            <ClipboardCheck className="w-16 h-16 text-indigo-400 mx-auto mb-4" />
+            <p className="text-white font-medium mb-2">No assessment results yet</p>
+            <p className="text-indigo-300">Assessment results will appear here when learners complete assessments</p>
+          </div>
+        )}
+      </div>
+
       {/* Quick Actions */}
       <div className="bg-white/10 backdrop-blur-xl rounded-2xl border border-white/20 p-6">
         <h3 className="text-xl font-bold text-white mb-4">Quick Actions</h3>
@@ -202,11 +287,11 @@ export default function AdminDashboard({ onNavigate }: AdminDashboardProps) {
             Manage Courses
           </Button>
           <Button
-            onClick={() => onNavigate('analytics')}
-            className="bg-green-500/20 hover:bg-green-500/30 text-green-300 border border-green-500/30"
+            onClick={() => onNavigate('assessments')}
+            className="bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 border border-cyan-500/30"
           >
-            <TrendingUp className="w-4 h-4 mr-2" />
-            View Analytics
+            <ClipboardCheck className="w-4 h-4 mr-2" />
+            Manage Assessments
           </Button>
           <Button
             onClick={() => handleExport('users')}

@@ -1,4 +1,4 @@
-const express = require('express');
+                                              const express = require('express');
 const router = express.Router();
 const {
   getCourses,
@@ -23,13 +23,13 @@ router
 router
   .route('/:id')
   .get(authorizeWithPermission('courses:read'), getCourse)
-  .put(authorizeResource('courseId'), authorizeWithPermission('courses:update'), updateCourse)
+  .put(authorizeResource('createdBy'), authorizeWithPermission('courses:update'), updateCourse)
   .delete(authorizeWithPermission('courses:delete'), deleteCourse);
 
 // Enroll in a course - users can enroll themselves
-router.post('/:id/enroll', enrollCourse);
+router.post('/:id/enroll', authorizeWithPermission('courses:write'), enrollCourse);
 
 // Update progress - users can update their own progress
-router.put('/:id/progress', updateProgress);
+router.put('/:id/progress', authorizeWithPermission('courses:write'), updateProgress);
 
 module.exports = router;

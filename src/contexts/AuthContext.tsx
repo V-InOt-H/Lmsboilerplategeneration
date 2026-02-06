@@ -1,93 +1,40 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { authAPI } from '../services/api';
+import { 
+  ROLE_PERMISSIONS, 
+  hasPermission as checkPermission,
+  hasRoleHierarchy as checkHierarchy,
+  isRoleType
+} from '../utils/permissions';
 
-// Role hierarchy levels
-const ROLE_HIERARCHY = {
-  'Super Admin': 5,
-  'Admin': 4,
-  'HR': 3,
-  'Trainer': 2,
-  'Learner': 1
-};
+// User type definition
+interface User {
+  _id: string;
+  name: string;
+  email: string;
+  role: string;
+  department?: string;
+}
 
-// Permission definitions for each role
-const ROLE_PERMISSIONS = {
-  'Super Admin': [
-    'system:super_admin', 'system:full_access',
-    'users:read', 'users:create', 'users:update', 'users:delete', 'users:deactivate',
-    'courses:read', 'courses:create', 'courses:update', 'courses:delete', 'courses:publish',
-    'assessments:read', 'assessments:create', 'assessments:update', 'assessments:delete',
-    'assessments:grade', 'assessments:view-results',
-    'analytics:read', 'analytics:export',
-    'settings:read', 'settings:update',
-    'knowledge:read', 'knowledge:create', 'knowledge:update', 'knowledge:delete',
-    'certificates:read', 'certificates:create'
-  ],
-  'Admin': [
-    'users:read', 'users:create', 'users:update', 'users:deactivate',
-    'courses:read', 'courses:create', 'courses:update', 'courses:delete', 'courses:publish',
-    'assessments:read', 'assessments:create', 'assessments:update', 'assessments:delete',
-    'assessments:grade', 'assessments:view-results',
-    'analytics:read', 'analytics:export',
-    'settings:read',
-    'knowledge:read', 'knowledge:create', 'knowledge:update', 'knowledge:delete',
-    'certificates:read', 'certificates:create'
-  ],
-  'HR': [
-    'users:read', 'users:create', 'users:update',
-    'courses:read',
-    'assessments:read', 'assessments:view-results',
-    'analytics:read',
-    'knowledge:read',
-    'certificates:read'
-  ],
-  'Trainer': [
-    'courses:read', 'courses:create', 'courses:update', 'courses:publish',
-    'assessments:read', 'assessments:create', 'assessments:update',
-    'assessments:grade', 'assessments:view-results',
-    'analytics:read',
-    'knowledge:read', 'knowledge:create', 'knowledge:update',
-    'certificates:read', 'certificates:create'
-  ],
-  'Learner': [
-    'courses:read',
-    'assessments:read', 'assessments:view-results',
-    'knowledge:read',
-    'certificates:read'
-  ]
-};
+// Auth Context type
+interface AuthContextType {
+  user: User | null;
+  loading: boolean;
+  error: string | null;
+  login: (email: string, password: string) => Promise<void>;
+  register: (userData: { name: string; email: string; password: string; department?: string }) => Promise<void>;
+  logout: () => void;
+  hasRole: (...roles: string[]) => boolean;
+  hasPermission: (permission: string) => boolean;
+  hasAnyPermission: (...permissionList: string[]) => boolean;
+  hasMinimumRole: (minimumRole: string) => boolean;
+  getRoleInfo: () => { label: string; color: string; icon: string } | null;
+  permissions: string[];
+  isAuthenticated: boolean;
+  role: string | null;
+}
 
-// Permission checking helper
-const hasPermission = (role, permission) => {
-  const permissions = ROLE_PERMISSIONS[role];
-  if (!permissions) return false;
-  if (role === 'Super Admin') return true;
-  return permissions.includes(permission);
-};
-
-// Role hierarchy check
-const hasRoleHierarchy = (role1, role2) => {
-  const level1 = ROLE_HIERARCHY[role1] || 0;
-  const level2 = ROLE_HIERARCHY[role2] || 0;
-  return level1 >= level2;
-};
-
-const AuthContext = createContext({
-  user: null,
-  loading: true,
-  error: null,
-  login: async () => {},
-  register: async () => {},
-  logout: () => {},
-  hasRole: (...roles: string[]) => false,
-  hasPermission: () => false,
-  hasAnyPermission: () => false,
-  hasMinimumRole: () => false,
-  getRoleInfo: () => null,
-  permissions: [],
-  isAuthenticated: false,
-  role: null
-});
+const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const useAuth = () => {
   const context = useContext(AuthContext);
@@ -97,11 +44,15 @@ export const useAuth = () => {
   return context;
 };
 
-export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(null);
+interface AuthProviderProps {
+  children: ReactNode;
+}
+
+export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
+  const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [permissions, setPermissions] = useState([]);
+  const [error, setError] = useState<string | null>(null);
+  const [permissions, setPermissions] = useState<string[]>([]);
 
   // Check if user is logged in on mount
   useEffect(() => {
@@ -118,8 +69,11 @@ export const AuthProvider = ({ children }) => {
           const response = await Promise.race([authPromise, timeoutPromise]);
           
           setUser(response.user);
-          // Set permissions based on role
-          setPermissions(ROLE_PERMISSIONS[response.user.role] || []);
+          // Set permissions based on role using centralized definitions
+          const userRole = response.user.role;
+          if (isRoleType(userRole)) {
+            setPermissions(ROLE_PERMISSIONS[userRole] || []);
+          }
         } catch (err) {
           console.error('Auth check failed:', err);
           localStorage.removeItem('token');
@@ -137,8 +91,11 @@ export const AuthProvider = ({ children }) => {
       try {
         const response = await authAPI.getMe();
         setUser(response.user);
-        // Set permissions based on role
-        setPermissions(ROLE_PERMISSIONS[response.user.role] || []);
+        // Set permissions based on role using centralized definitions
+        const userRole = response.user.role;
+        if (isRoleType(userRole)) {
+          setPermissions(ROLE_PERMISSIONS[userRole] || []);
+        }
       } catch (err) {
         console.error('Auth check failed:', err);
         localStorage.removeItem('token');
@@ -147,30 +104,36 @@ export const AuthProvider = ({ children }) => {
     setLoading(false);
   };
 
-  const login = async (email, password) => {
+  const login = async (email: string, password: string): Promise<void> => {
     try {
       setError(null);
       const response = await authAPI.login({ email, password });
       localStorage.setItem('token', response.token);
       setUser(response.user);
-      setPermissions(ROLE_PERMISSIONS[response.user.role] || []);
-      return response;
+      // Set permissions based on role using centralized definitions
+      const userRole = response.user.role;
+      if (isRoleType(userRole)) {
+        setPermissions(ROLE_PERMISSIONS[userRole] || []);
+      }
     } catch (err) {
-      setError(err.message);
+      setError(err instanceof Error ? err.message : 'Login failed');
       throw err;
     }
   };
 
-  const register = async (userData) => {
+  const register = async (userData: { name: string; email: string; password: string; department?: string }): Promise<void> => {
     try {
       setError(null);
       const response = await authAPI.register(userData);
       localStorage.setItem('token', response.token);
       setUser(response.user);
-      setPermissions(ROLE_PERMISSIONS[response.user.role] || []);
-      return response;
+      // Set permissions based on role using centralized definitions
+      const userRole = response.user.role;
+      if (isRoleType(userRole)) {
+        setPermissions(ROLE_PERMISSIONS[userRole] || []);
+      }
     } catch (err) {
-      setError(err.message);
+      setError(err instanceof Error ? err.message : 'Registration failed');
       throw err;
     }
   };
@@ -181,34 +144,32 @@ export const AuthProvider = ({ children }) => {
     setPermissions([]);
   };
 
-  const hasRole = (...roles) => {
-    return user && roles.includes(user.role);
+  const hasRole = (...roles: string[]): boolean => {
+    return !!user && roles.includes(user!.role);
   };
 
-  // Check if user has a specific permission
-  const hasPermission = (permission) => {
+  // Check if user has a specific permission using centralized function
+  const hasPermission = (permission: string): boolean => {
     if (!user) return false;
-    if (user.role === 'Super Admin') return true;
-    return permissions.includes(permission);
+    return checkPermission(user.role, permission);
   };
 
   // Check if user has any of the specified permissions
-  const hasAnyPermission = (...permissionList) => {
+  const hasAnyPermission = (...permissionList: string[]): boolean => {
     if (!user) return false;
-    if (user.role === 'Super Admin') return true;
-    return permissionList.some(p => permissions.includes(p));
+    return permissionList.some(p => checkPermission(user.role, p));
   };
 
   // Check if user has at least the minimum role
-  const hasMinimumRole = (minimumRole) => {
+  const hasMinimumRole = (minimumRole: string): boolean => {
     if (!user) return false;
-    return hasRoleHierarchy(user.role, minimumRole);
+    return checkHierarchy(user.role, minimumRole);
   };
 
   // Get role info for display
   const getRoleInfo = () => {
     if (!user) return null;
-    const roleInfo = {
+    const roleInfo: Record<string, { label: string; color: string; icon: string }> = {
       'Super Admin': { label: 'Super Admin', color: 'bg-red-500/20 text-red-300', icon: '👑' },
       'Admin': { label: 'Admin', color: 'bg-purple-500/20 text-purple-300', icon: '⚡' },
       'HR': { label: 'HR', color: 'bg-orange-500/20 text-orange-300', icon: '👥' },
@@ -218,7 +179,10 @@ export const AuthProvider = ({ children }) => {
     return roleInfo[user.role] || { label: user.role, color: 'bg-gray-500/20 text-gray-300', icon: '' };
   };
 
-  const value = {
+  const isAuth: boolean = !!user;
+  const userRole: string | null = user ? user.role : null;
+
+  const contextValue: AuthContextType = {
     user,
     loading,
     error,
@@ -231,10 +195,10 @@ export const AuthProvider = ({ children }) => {
     hasMinimumRole,
     getRoleInfo,
     permissions,
-    isAuthenticated: !!user,
-    role: user?.role || null
+    isAuthenticated: isAuth as boolean,
+    role: userRole
   };
 
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+  return <AuthContext.Provider value={contextValue}>{children}</AuthContext.Provider>;
 };
 

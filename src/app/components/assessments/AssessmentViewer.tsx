@@ -4,27 +4,77 @@ import { Button } from '../ui/button';
 import { toast } from 'sonner';
 import { assessmentsAPI } from '../../../services/api';
 
-export default function AssessmentViewer({ assessment, onBack }) {
+interface Question {
+  _id: string;
+  question: string;
+  type: 'MCQ' | 'True/False';
+  options: string[];
+  points: number;
+}
+
+interface AssessmentResult {
+  score: number;
+  totalPoints: number;
+  percentage: number;
+  passed: boolean;
+  attemptNumber: number;
+}
+
+interface Assessment {
+  _id: string;
+  title: string;
+  questions: Question[];
+  status: 'Draft' | 'Published';
+}
+
+interface AssessmentViewerProps {
+  assessment?: Assessment | null;
+  onBack: () => void;
+}
+
+export default function AssessmentViewer({ assessment, onBack }: AssessmentViewerProps) {
   const [currentQuestion, setCurrentQuestion] = useState(0);
-  const [answers, setAnswers] = useState({});
+  const [answers, setAnswers] = useState<Record<number, string>>({});
   const [submitted, setSubmitted] = useState(false);
-  const [result, setResult] = useState(null);
+  const [result, setResult] = useState<AssessmentResult | null>(null);
 
   if (!assessment) return null;
 
-  const handleAnswer = (answer) => {
+  // Check if assessment is published
+  if (assessment.status === 'Draft') {
+    return (
+      <div className="space-y-6">
+        <Button onClick={onBack} variant="ghost" className="text-indigo-300 hover:text-white hover:bg-white/10">
+          <ArrowLeft className="w-4 h-4 mr-2" />
+          Back
+        </Button>
+
+        <div className="bg-white/10 backdrop-blur-xl rounded-2xl border border-white/20 p-8 text-center">
+          <h2 className="text-2xl font-bold text-white mb-4">Assessment Not Available</h2>
+          <p className="text-indigo-300 mb-6">
+            This assessment is currently in Draft mode and not yet available for taking.
+          </p>
+          <div className="bg-yellow-500/20 text-yellow-300 px-4 py-2 rounded-lg inline-block">
+            Status: Draft
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const handleAnswer = (answer: string) => {
     setAnswers({ ...answers, [currentQuestion]: answer });
   };
 
   const handleSubmit = async () => {
     try {
       const answerArray = assessment.questions.map((_, idx) => answers[idx] || '');
-      const response = await assessmentsAPI.submit(assessment._id, answerArray, 0);
+      const response = await assessmentsAPI.submit(assessment._id, answerArray, 0) as { result: AssessmentResult };
       setResult(response.result);
       setSubmitted(true);
       toast.success('Assessment submitted!');
-    } catch (err) {
-      toast.error(err.message || 'Failed to submit assessment');
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'Failed to submit assessment');
     }
   };
 
@@ -156,3 +206,4 @@ export default function AssessmentViewer({ assessment, onBack }) {
     </div>
   );
 }
+

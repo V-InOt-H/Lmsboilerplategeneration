@@ -1,17 +1,35 @@
 import { useState, useEffect } from 'react';
-import { analyticsAPI } from '../../../services/api';
-import { BookOpen, Award, Clock, TrendingUp, Play } from 'lucide-react';
+import { analyticsAPI, assessmentsAPI } from '../../../services/api';
+import { BookOpen, Award, Clock, TrendingUp, Play, ClipboardCheck } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Progress } from '../ui/progress';
+import { toast } from 'sonner';
 
 interface LearnerDashboardProps {
   onNavigate: (view: string) => void;
   onSelectCourse: (course: any) => void;
+  onSelectAssessment: (assessment: any) => void;
 }
 
-export default function LearnerDashboard({ onNavigate, onSelectCourse }: LearnerDashboardProps) {
+interface Assessment {
+  _id: string;
+  title: string;
+  description: string;
+  course?: any;
+  questions: any[];
+  duration: number;
+  passingScore: number;
+  status: string;
+  userAttempted: boolean;
+  userScore: number | null;
+  userPassed: boolean | null;
+  attemptNumber: number;
+}
+
+export default function LearnerDashboard({ onNavigate, onSelectCourse, onSelectAssessment }: LearnerDashboardProps) {
   const [analytics, setAnalytics] = useState<any>(null);
   const [enrolledCourses, setEnrolledCourses] = useState<any[]>([]);
+  const [availableAssessments, setAvailableAssessments] = useState<Assessment[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -23,6 +41,7 @@ export default function LearnerDashboard({ onNavigate, onSelectCourse }: Learner
       const analyticsData = await analyticsAPI.getLearner();
       setAnalytics(analyticsData.analytics);
       setEnrolledCourses(analyticsData.analytics?.enrolledCourses || []);
+      setAvailableAssessments(analyticsData.analytics?.availableAssessments || []);
     } catch (err) {
       console.error('Failed to fetch data:', err);
     } finally {
@@ -33,6 +52,10 @@ export default function LearnerDashboard({ onNavigate, onSelectCourse }: Learner
   if (loading) {
     return <div className="text-white">Loading...</div>;
   }
+
+  const handleStartAssessment = (assessment: Assessment) => {
+    onSelectAssessment(assessment);
+  };
 
   return (
     <div className="space-y-6">
@@ -137,6 +160,93 @@ export default function LearnerDashboard({ onNavigate, onSelectCourse }: Learner
                     <Play className="w-4 h-4 mr-2" />
                     Continue Learning
                   </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Available Assessments */}
+      <div className="bg-white/10 backdrop-blur-xl rounded-2xl border border-white/20 p-6">
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-xl font-bold text-white">Available Assessments</h2>
+          <Button
+            onClick={() => onNavigate('assessments')}
+            variant="ghost"
+            className="text-indigo-300 hover:text-white hover:bg-white/10"
+          >
+            View All
+          </Button>
+        </div>
+
+        {availableAssessments.length === 0 ? (
+          <div className="text-center py-12">
+            <ClipboardCheck className="w-16 h-16 text-indigo-400 mx-auto mb-4" />
+            <p className="text-white font-medium mb-2">No assessments available</p>
+            <p className="text-indigo-300">Enroll in courses to access assessments</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {availableAssessments.slice(0, 6).map((assessment) => (
+              <div
+                key={assessment._id}
+                className="bg-white/5 rounded-xl border border-white/10 overflow-hidden hover:border-indigo-500/50 transition-all group"
+              >
+                <div className="h-32 bg-gradient-to-br from-blue-500 to-cyan-600 flex items-center justify-center">
+                  <ClipboardCheck className="w-12 h-12 text-white opacity-50" />
+                </div>
+                <div className="p-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <h3 className="text-white font-semibold line-clamp-2 flex-1">
+                      {assessment.title}
+                    </h3>
+                    <span className={`ml-2 px-2 py-1 rounded-lg text-xs font-medium ${
+                      assessment.status === 'Published' 
+                        ? 'bg-green-500/20 text-green-300' 
+                        : 'bg-yellow-500/20 text-yellow-300'
+                    }`}>
+                      {assessment.status}
+                    </span>
+                  </div>
+                  <p className="text-indigo-300 text-sm mb-3 line-clamp-2">
+                    {assessment.description || 'Test your knowledge'}
+                  </p>
+                  <div className="flex items-center justify-between text-xs text-indigo-300 mb-3">
+                    <span>{assessment.questions?.length || 0} questions</span>
+                    <span>{assessment.duration} mins</span>
+                    <span>Pass: {assessment.passingScore}%</span>
+                  </div>
+                  {assessment.status === 'Draft' ? (
+                    <div className="bg-yellow-500/20 text-yellow-300 text-sm font-medium px-3 py-2 rounded-lg text-center">
+                      Coming Soon
+                    </div>
+                  ) : assessment.userAttempted ? (
+                    <div className="space-y-2">
+                      <div className={`text-sm font-medium px-3 py-2 rounded-lg text-center ${
+                        assessment.userPassed 
+                          ? 'bg-green-500/20 text-green-300' 
+                          : 'bg-red-500/20 text-red-300'
+                      }`}>
+                        {assessment.userPassed ? 'Passed' : 'Failed'} - {assessment.userScore?.toFixed(0)}%
+                      </div>
+                      <Button
+                        onClick={() => handleStartAssessment(assessment)}
+                        size="sm"
+                        className="w-full bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-300 border border-indigo-500/30"
+                      >
+                        Try Again
+                      </Button>
+                    </div>
+                  ) : (
+                    <Button
+                      onClick={() => handleStartAssessment(assessment)}
+                      className="w-full bg-gradient-to-r from-blue-500 to-cyan-600 hover:from-blue-600 hover:to-cyan-700"
+                    >
+                      <Play className="w-4 h-4 mr-2" />
+                      Start Assessment
+                    </Button>
+                  )}
                 </div>
               </div>
             ))}

@@ -2,7 +2,7 @@ const Certificate = require('../models/Certificate.model');
 const User = require('../models/User.model');
 const Course = require('../models/Course.model');
 
-// @desc    Get all certificates
+// @desc    Get all certificates for user
 // @route   GET /api/certificates
 // @access  Private
 exports.getCertificates = async (req, res) => {
@@ -24,14 +24,22 @@ exports.getCertificates = async (req, res) => {
   }
 };
 
-// @desc    Get single certificate
+// @desc    Get single certificate by ID
 // @route   GET /api/certificates/:id
 // @access  Private
 exports.getCertificate = async (req, res) => {
   try {
-    const certificate = await Certificate.findById(req.params.id)
+    // Try to find by _id first
+    let certificate = await Certificate.findById(req.params.id)
       .populate('user', 'name email')
       .populate('course', 'title description category');
+
+    // If not found, try by certificateNumber
+    if (!certificate) {
+      certificate = await Certificate.findOne({ certificateNumber: req.params.id })
+        .populate('user', 'name email')
+        .populate('course', 'title description category');
+    }
 
     if (!certificate) {
       return res.status(404).json({
@@ -95,15 +103,19 @@ exports.generateCertificate = async (req, res) => {
       });
     }
 
-    // Generate certificate
+    // Generate certificate - the model will auto-generate certificateNumber
     const certificate = await Certificate.create({
       user: user._id,
       course: course._id,
       completionDate: Date.now(),
-      finalScore: enrollment.progress
+      finalScore: enrollment.progress,
+      issuedDate: Date.now()
     });
 
-    await certificate.populate('course', 'title category');
+    await certificate.populate([
+      { path: 'user', select: 'name email' },
+      { path: 'course', select: 'title category' }
+    ]);
 
     res.status(201).json({
       success: true,
@@ -116,3 +128,41 @@ exports.generateCertificate = async (req, res) => {
     });
   }
 };
+
+// @desc    Verify certificate
+// @route   GET /api/certificates/verify/:certificateNumber
+// @access  Public
+exports.verifyCertificate = async (req, res) => {
+  try {
+    const certificate = await Certificate.findOne({ 
+      certificateNumber: req.params.certificateNumber 
+    })
+      .populate('user', 'name')
+      .populate('course', 'title');
+
+    if (!certificate) {
+      return res.status(404).json({
+        success: false,
+        message: 'Certificate not found'
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      verification: {
+        valid: true,
+        certificateNumber: certificate.certificateNumber,
+        learnerName: certificate.user?.name,
+        courseName: certificate.course?.title,
+        completionDate: certificate.completionDate,
+        issuedDate: certificate.issuedDate
+      }
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+};
+

@@ -19,9 +19,11 @@ import KnowledgeBase from './components/knowledge/KnowledgeBase';
 import ArticleViewer from './components/knowledge/ArticleViewer';
 import ArticleEditor from './components/knowledge/ArticleEditor';
 import Certificates from './components/certificates/Certificates';
+import CertificateViewer from './components/certificates/CertificateViewer';
 import UserManagement from './components/admin/UserManagement';
 import OrgSettings from './components/admin/OrgSettings';
 import Analytics from './components/admin/Analytics';
+import EnrollmentManagement from './components/enrollments/EnrollmentManagement';
 
 function AppContent() {
   const { user, loading, isAuthenticated } = useAuth() as { user: any; loading: boolean; isAuthenticated: boolean };
@@ -29,14 +31,30 @@ function AppContent() {
   const [selectedItem, setSelectedItem] = useState<any>(null);
   const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [resetToken, setResetToken] = useState<string | null>(null);
+  const [certificateId, setCertificateId] = useState<string | null>(null);
 
-  // Check for reset password token in URL
+  // Check for reset password token or certificate URL in URL path
   useEffect(() => {
     const path = window.location.pathname;
-    const match = path.match(/^\/reset-password\/(.+)$/);
-    if (match && match[1]) {
-      setResetToken(match[1]);
+    
+    // Check for reset password token
+    const resetMatch = path.match(/^\/reset-password\/(.+)$/);
+    if (resetMatch && resetMatch[1]) {
+      setResetToken(resetMatch[1]);
+      return;
     }
+    
+    // Check for certificate view
+    const certMatch = path.match(/^\/certificates\/(.+)$/);
+    if (certMatch && certMatch[1]) {
+      setCertificateId(certMatch[1]);
+      setCurrentView('certificate-viewer');
+      return;
+    }
+    
+    // Reset these states if on normal routes
+    setResetToken(null);
+    setCertificateId(null);
   }, []);
 
   if (loading) {
@@ -50,6 +68,11 @@ function AppContent() {
   // Show reset password page if token exists in URL
   if (resetToken) {
     return <ResetPassword token={resetToken} onNavigate={setCurrentView} />;
+  }
+
+  // Show certificate viewer if certificateId exists
+  if (certificateId) {
+    return <CertificateViewer />;
   }
 
   if (!isAuthenticated) {
@@ -67,10 +90,17 @@ function AppContent() {
         } else if (user?.role === 'Trainer') {
           return <TrainerDashboard onNavigate={setCurrentView} />;
         } else {
-          return <LearnerDashboard onNavigate={setCurrentView} onSelectCourse={(course: any) => {
-            setSelectedItem(course);
-            setCurrentView('course-viewer');
-          }} />;
+          return <LearnerDashboard 
+            onNavigate={setCurrentView} 
+            onSelectCourse={(course: any) => {
+              setSelectedItem(course);
+              setCurrentView('course-viewer');
+            }}
+            onSelectAssessment={(assessment: any) => {
+              setSelectedItem(assessment);
+              setCurrentView('assessment-viewer');
+            }}
+          />;
         }
       
       case 'courses':
@@ -159,6 +189,9 @@ function AppContent() {
       case 'certificates':
         return <Certificates />;
       
+      case 'certificate-viewer':
+        return <CertificateViewer />;
+      
       case 'users':
         return <UserManagement />;
       
@@ -167,6 +200,9 @@ function AppContent() {
 
       case 'analytics':
         return <Analytics />;
+      
+      case 'enrollments':
+        return <EnrollmentManagement />;
       
       default:
         return <div className="text-white">View not found</div>;
@@ -195,3 +231,4 @@ export default function App() {
     </AuthProvider>
   );
 }
+

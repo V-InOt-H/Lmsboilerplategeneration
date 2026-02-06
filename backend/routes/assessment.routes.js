@@ -23,11 +23,11 @@ router
 router
   .route('/:id')
   .get(authorizeWithPermission('assessments:read'), getAssessment)
-  .put(authorizeResource('assessmentId'), authorizeWithPermission('assessments:update'), updateAssessment)
+  .put(authorizeResource('createdBy'), authorizeWithPermission('assessments:update'), updateAssessment)
   .delete(authorizeWithPermission('assessments:delete'), deleteAssessment);
 
-// Submit assessment - learners can submit their own
-router.post('/:id/submit', submitAssessment);
+// Submit assessment - requires authentication (any authenticated user)
+router.post('/:id/submit', protect, submitAssessment);
 
 // Get results - depends on role (own results or grading permission)
 router.get('/:id/results', authorizeWithPermission('assessments:view-results'));

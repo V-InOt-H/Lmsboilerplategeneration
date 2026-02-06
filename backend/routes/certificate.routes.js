@@ -3,19 +3,24 @@ const router = express.Router();
 const {
   getCertificates,
   getCertificate,
-  generateCertificate
+  generateCertificate,
+  verifyCertificate
 } = require('../controllers/certificate.controller');
-const { protect, authorizeWithPermission, authorizeResource } = require('../middleware/auth.middleware');
+const { protect, authorizeWithPermission } = require('../middleware/auth.middleware');
 
 router.use(protect);
 
 // Get all certificates - requires authentication
-router.get('/', authorizeWithPermission('certificates:read'), getCertificates);
+router.get('/', getCertificates);
 
-// Get single certificate - requires authentication
-router.get('/:id', authorizeWithPermission('certificates:read'), getCertificate);
+// Generate certificate - requires courses:write permission (for self-enrollment)
+router.post('/generate', authorizeWithPermission('courses:write'), generateCertificate);
 
-// Generate certificate - requires certificate:create permission
-router.post('/generate', authorizeWithPermission('certificates:create'), generateCertificate);
+// Verify certificate - public route
+router.get('/verify/:certificateId', verifyCertificate);
+
+// Get single certificate by ID or certificateId
+router.get('/:id', getCertificate);
 
 module.exports = router;
+

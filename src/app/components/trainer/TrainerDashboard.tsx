@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { analyticsAPI, coursesAPI } from '../../../services/api';
-import { BookOpen, Users, TrendingUp, Clock, Trash2, Edit } from 'lucide-react';
+import { BookOpen, Users, TrendingUp, Clock, Trash2, Edit, ClipboardCheck } from 'lucide-react';
 import { Button } from '../ui/button';
 import { toast } from 'sonner';
 import {
@@ -14,8 +14,32 @@ import {
   AlertDialogTitle,
 } from '../ui/alert-dialog';
 
-interface TrainerDashboardProps {
-  onNavigate: (view: string) => void;
+interface OverviewData {
+  totalCourses: number;
+  totalEnrollments: number;
+  completedCourses: number;
+}
+
+interface RecentAssessmentResult {
+  _id: string;
+  user: {
+    name: string;
+    email: string;
+  };
+  assessment: {
+    title: string;
+  };
+  score: number;
+  percentage: number;
+  passed: boolean;
+  attemptNumber: number;
+  createdAt: string;
+}
+
+interface AnalyticsData {
+  overview: OverviewData;
+  recentEnrollments?: any[];
+  recentAssessmentResults?: RecentAssessmentResult[];
 }
 
 interface Course {
@@ -27,8 +51,12 @@ interface Course {
   modules: any[];
 }
 
+interface TrainerDashboardProps {
+  onNavigate: (view: string) => void;
+}
+
 export default function TrainerDashboard({ onNavigate }: TrainerDashboardProps) {
-  const [analytics, setAnalytics] = useState<any>(null);
+  const [analytics, setAnalytics] = useState<AnalyticsData | null>(null);
   const [courses, setCourses] = useState<Course[]>([]);
   const [loading, setLoading] = useState(true);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -42,7 +70,7 @@ export default function TrainerDashboard({ onNavigate }: TrainerDashboardProps) 
   const fetchAnalytics = async () => {
     try {
       const response = await analyticsAPI.getDashboard();
-      setAnalytics(response.analytics);
+      setAnalytics(response.analytics as AnalyticsData);
     } catch (err) {
       console.error('Failed to fetch analytics:', err);
     }
@@ -84,7 +112,11 @@ export default function TrainerDashboard({ onNavigate }: TrainerDashboardProps) 
     return <div className="text-white">Loading...</div>;
   }
 
-  const overview = analytics?.overview || {};
+  const overview: OverviewData = analytics?.overview || {
+    totalCourses: 0,
+    totalEnrollments: 0,
+    completedCourses: 0
+  };
 
   return (
     <div className="space-y-6">
@@ -156,7 +188,7 @@ export default function TrainerDashboard({ onNavigate }: TrainerDashboardProps) 
             onClick={() => onNavigate('assessments')}
             className="bg-blue-500/20 hover:bg-blue-500/30 text-blue-300 border border-blue-500/30 py-6"
           >
-            <BookOpen className="w-5 h-5 mr-2" />
+            <ClipboardCheck className="w-5 h-5 mr-2" />
             Create Assessment
           </Button>
           <Button
@@ -169,65 +201,118 @@ export default function TrainerDashboard({ onNavigate }: TrainerDashboardProps) 
         </div>
       </div>
 
-      {/* My Courses */}
-      <div className="bg-white/10 backdrop-blur-xl rounded-2xl border border-white/20 p-6">
-        <div className="flex items-center justify-between mb-6">
-          <h3 className="text-xl font-bold text-white">My Courses</h3>
-          <Button
-            onClick={() => onNavigate('courses')}
-            className="bg-purple-500/20 hover:bg-purple-500/30 text-purple-300 border border-purple-500/30"
-          >
-            <Edit className="w-4 h-4 mr-2" />
-            Manage All
-          </Button>
-        </div>
-        
-        {courses.length === 0 ? (
-          <div className="text-center py-8">
-            <BookOpen className="w-12 h-12 text-indigo-400 mx-auto mb-4" />
-            <p className="text-indigo-300 mb-4">You haven't created any courses yet</p>
+      {/* Two Column Layout */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* My Courses */}
+        <div className="bg-white/10 backdrop-blur-xl rounded-2xl border border-white/20 p-6">
+          <div className="flex items-center justify-between mb-6">
+            <h3 className="text-xl font-bold text-white">My Courses</h3>
             <Button
               onClick={() => onNavigate('courses')}
-              className="bg-gradient-to-r from-indigo-500 to-purple-600"
+              className="bg-purple-500/20 hover:bg-purple-500/30 text-purple-300 border border-purple-500/30"
             >
-              Create Your First Course
+              <Edit className="w-4 h-4 mr-2" />
+              Manage All
             </Button>
           </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {courses.slice(0, 6).map((course) => (
-              <div key={course._id} className="bg-white/5 rounded-xl p-4 border border-white/10">
-                <div className="flex items-start justify-between mb-3">
-                  <div>
-                    <h4 className="text-white font-medium mb-1 line-clamp-1">{course.title}</h4>
-                    <p className="text-indigo-300 text-sm">{course.category}</p>
+          
+          {courses.length === 0 ? (
+            <div className="text-center py-8">
+              <BookOpen className="w-12 h-12 text-indigo-400 mx-auto mb-4" />
+              <p className="text-indigo-300 mb-4">You haven't created any courses yet</p>
+              <Button
+                onClick={() => onNavigate('courses')}
+                className="bg-gradient-to-r from-indigo-500 to-purple-600"
+              >
+                Create Your First Course
+              </Button>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {courses.slice(0, 4).map((course) => (
+                <div key={course._id} className="bg-white/5 rounded-xl p-4 border border-white/10">
+                  <div className="flex items-start justify-between mb-2">
+                    <div>
+                      <h4 className="text-white font-medium mb-1 line-clamp-1">{course.title}</h4>
+                      <p className="text-indigo-300 text-sm">{course.category}</p>
+                    </div>
+                    <span className={`px-2 py-1 rounded-lg text-xs font-medium ${
+                      course.status === 'Published' ? 'bg-green-500/20 text-green-300' : 'bg-yellow-500/20 text-yellow-300'
+                    }`}>
+                      {course.status}
+                    </span>
                   </div>
-                  <span className={`px-2 py-1 rounded-lg text-xs font-medium ${
-                    course.status === 'Published' ? 'bg-green-500/20 text-green-300' : 'bg-yellow-500/20 text-yellow-300'
-                  }`}>
-                    {course.status}
-                  </span>
+                  <div className="flex items-center justify-between">
+                    <span className="text-indigo-300 text-sm">
+                      {course.modules?.length || 0} modules
+                    </span>
+                    <Button
+                      onClick={() => handleDeleteClick(course)}
+                      variant="ghost"
+                      size="icon"
+                      className="text-red-400 hover:text-red-300 hover:bg-red-500/10"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  </div>
                 </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-indigo-300 text-sm">
-                    {course.modules?.length || 0} modules
-                  </span>
-                  <Button
-                    onClick={() => handleDeleteClick(course)}
-                    variant="ghost"
-                    size="icon"
-                    className="text-red-400 hover:text-red-300 hover:bg-red-500/10"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </Button>
-                </div>
-              </div>
-            ))}
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Recent Assessment Results */}
+        <div className="bg-white/10 backdrop-blur-xl rounded-2xl border border-white/20 p-6">
+          <div className="flex items-center justify-between mb-6">
+            <h3 className="text-xl font-bold text-white">Recent Assessment Results</h3>
+            <Button
+              onClick={() => onNavigate('assessments')}
+              variant="ghost"
+              className="text-indigo-300 hover:text-white hover:bg-white/10"
+            >
+              View All
+            </Button>
           </div>
-        )}
+
+          {analytics?.recentAssessmentResults && analytics.recentAssessmentResults.length > 0 ? (
+            <div className="space-y-3">
+              {analytics.recentAssessmentResults.slice(0, 4).map((result: RecentAssessmentResult) => (
+                <div key={result._id} className="bg-white/5 rounded-xl p-4 border border-white/10">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <div className="w-8 h-8 bg-gradient-to-br from-blue-400 to-cyan-500 rounded-full flex items-center justify-center text-white text-xs font-bold">
+                        {result.user?.name?.charAt(0) || '?'}
+                      </div>
+                      <div>
+                        <p className="text-white text-sm font-medium">{result.user?.name || 'Unknown'}</p>
+                        <p className="text-indigo-300 text-xs">{result.assessment?.title || 'Unknown'}</p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-white font-bold">{result.percentage?.toFixed(0)}%</p>
+                      <span className={`px-2 py-0.5 rounded text-xs font-medium ${
+                        result.passed 
+                          ? 'bg-green-500/20 text-green-300' 
+                          : 'bg-red-500/20 text-red-300'
+                      }`}>
+                        {result.passed ? 'Passed' : 'Failed'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-8">
+              <ClipboardCheck className="w-12 h-12 text-indigo-400 mx-auto mb-4" />
+              <p className="text-indigo-300">No assessment results yet</p>
+              <p className="text-indigo-400 text-sm">Results will appear here when learners complete assessments</p>
+            </div>
+          )}
+        </div>
       </div>
 
-      {/* Recent Activity */}
+      {/* Recent Enrollments */}
       <div className="bg-white/10 backdrop-blur-xl rounded-2xl border border-white/20 p-6">
         <h3 className="text-xl font-bold text-white mb-6">Recent Enrollments</h3>
         <div className="space-y-3">
@@ -242,6 +327,12 @@ export default function TrainerDashboard({ onNavigate }: TrainerDashboardProps) 
                   <p className="text-indigo-300 text-sm">{enrollment.email}</p>
                 </div>
               </div>
+              {enrollment.course?.title && (
+                <div className="text-right">
+                  <p className="text-indigo-300 text-sm">Enrolled in</p>
+                  <p className="text-white text-sm">{enrollment.course.title}</p>
+                </div>
+              )}
             </div>
           )) || (
             <p className="text-indigo-300 text-center py-8">No recent enrollments</p>

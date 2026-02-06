@@ -1,6 +1,6 @@
 const User = require('../models/User.model');
 const Course = require('../models/Course.model');
-const { AssessmentResult } = require('../models/Assessment.model');
+const { Assessment, AssessmentResult } = require('../models/Assessment.model');
 const Certificate = require('../models/Certificate.model');
 
 // @desc    Get dashboard analytics
@@ -45,6 +45,43 @@ exports.getDashboardAnalytics = async (req, res) => {
       .sort('-enrolledCourses.enrolledAt')
       .limit(10);
 
+    // Recent assessment results
+    const recentAssessmentResults = await AssessmentResult.find()
+      .populate('user', 'name email')
+      .populate('assessment', 'title')
+      .sort('-createdAt')
+      .limit(10);
+
+    // All assessments with results
+    const allAssessments = await Assessment.find()
+      .select('title questions duration status createdBy')
+      .populate('createdBy', 'name')
+      .sort('-createdAt');
+
+    // Calculate assessment stats per assessment
+    const assessmentsWithStats = await Promise.all(
+      allAssessments.map(async (assessment) => {
+        const results = await AssessmentResult.find({ assessment: assessment._id });
+        const totalAttempts = results.length;
+        const passedAttempts = results.filter(r => r.passed).length;
+        const averageScore = totalAttempts > 0
+          ? results.reduce((sum, r) => sum + r.percentage, 0) / totalAttempts
+          : 0;
+
+        return {
+          _id: assessment._id,
+          title: assessment.title,
+          status: assessment.status,
+          createdBy: assessment.createdBy,
+          totalAttempts,
+          passedAttempts,
+          failedAttempts: totalAttempts - passedAttempts,
+          averageScore: averageScore.toFixed(2),
+          lastAttempt: results.length > 0 ? results[0].createdAt : null
+        };
+      })
+    );
+
     res.status(200).json({
       success: true,
       analytics: {
@@ -63,7 +100,9 @@ exports.getDashboardAnalytics = async (req, res) => {
           averageScore: averageScore.toFixed(2)
         },
         topCourses,
-        recentEnrollments
+        recentEnrollments,
+        recentAssessmentResults,
+        assessments: assessmentsWithStats
       }
     });
   } catch (error) {
@@ -86,18 +125,61 @@ exports.getLearnerAnalytics = async (req, res) => {
     const assessmentResults = await AssessmentResult.find({ user: req.user.id })
       .populate('assessment', 'title');
 
-    const totalCourses = user.enrolledCourses.length;
-    const completedCourses = user.enrolledCourses.filter(e => e.status === 'Completed').length;
+    // Filter out orphaned enrollments (courses that have been deleted)
+    const validEnrolledCourses = user.enrolledCourses.filter(
+      enrollment => enrollment.course !== null
+    );
+
+    const totalCourses = validEnrolledCourses.length;
+    const completedCourses = validEnrolledCourses.filter(e => e.status === 'Completed').length;
     const inProgressCourses = totalCourses - completedCourses;
     
     const averageProgress = totalCourses > 0
-      ? user.enrolledCourses.reduce((sum, e) => sum + e.progress, 0) / totalCourses
+      ? validEnrolledCourses.reduce((sum, e) => sum + e.progress, 0) / totalCourses
       : 0;
 
     const passedAssessments = assessmentResults.filter(r => r.passed).length;
     const averageAssessmentScore = assessmentResults.length > 0
       ? assessmentResults.reduce((sum, r) => sum + r.percentage, 0) / assessmentResults.length
       : 0;
+
+    // Get available assessments - show all (including Draft) for learners to see what's available
+    const availableAssessments = await Assessment.find()
+      .select('title description course questions duration passingScore status')
+      .populate('course', 'title')
+      .sort('-createdAt');
+
+    // Get user's assessment results by assessment ID for quick lookup
+    const userResultsMap = {};
+    assessmentResults.forEach(result => {
+      userResultsMap[result.assessment.toString()] = result;
+    });
+
+    // Map assessments with user's results
+    const assessmentsWithStatus = availableAssessments.map(assessment => {
+      const result = userResultsMap[assessment._id.toString()];
+      return {
+        _id: assessment._id,
+        title: assessment.title,
+        description: assessment.description,
+        course: assessment.course,
+        questions: assessment.questions,
+        duration: assessment.duration,
+        passingScore: assessment.passingScore,
+        status: assessment.status,
+        userAttempted: !!result,
+        userScore: result ? result.percentage : null,
+        userPassed: result ? result.passed : null,
+        attemptNumber: result ? result.attemptNumber : 0,
+        lastAttempt: result ? result.createdAt : null
+      };
+    });
+
+    // Get pending assessments (not attempted yet)
+    const pendingAssessments = assessmentsWithStatus.filter(a => !a.userAttempted);
+    
+    // Get completed assessments (attempted)
+    const completedAssessments = assessmentsWithStatus.filter(a => a.userAttempted);
 
     res.status(200).json({
       success: true,
@@ -111,12 +193,15 @@ exports.getLearnerAnalytics = async (req, res) => {
         assessments: {
           total: assessmentResults.length,
           passed: passedAssessments,
-          averageScore: averageAssessmentScore.toFixed(2)
+          averageScore: averageAssessmentScore.toFixed(2),
+          pending: pendingAssessments.length,
+          completed: completedAssessments.length
         },
         certificates: {
           total: certificates.length
         },
-        enrolledCourses: user.enrolledCourses,
+        enrolledCourses: validEnrolledCourses,
+        availableAssessments: assessmentsWithStatus,
         recentAssessments: assessmentResults.slice(0, 5)
       }
     });

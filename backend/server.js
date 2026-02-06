@@ -102,6 +102,7 @@ app.use('/api/certificates', require('./routes/certificate.routes'));
 app.use('/api/analytics', require('./routes/analytics.routes'));
 app.use('/api/settings', require('./routes/settings.routes'));
 app.use('/api/notifications', require('./routes/notification.routes'));
+app.use('/api/enrollments', require('./routes/enrollment.routes'));
 
 // Error handling middleware
 app.use((err, req, res, next) => {

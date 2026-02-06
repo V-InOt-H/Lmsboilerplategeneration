@@ -67,14 +67,15 @@ export const ROLE_PERMISSIONS: Record<RoleType, string[]> = {
     'notifications:read'
   ],
   'Trainer': [
-    'courses:read', 'courses:write',
-    'assessments:read', 'assessments:write',
-    'knowledge:read', 'knowledge:write',
+    'courses:read', 'courses:write', 'courses:delete',
+    'assessments:read', 'assessments:write', 'assessments:delete',
+    'knowledge:read', 'knowledge:write', 'knowledge:delete',
     'certificates:read', 'certificates:write',
     'analytics:read'
   ],
   'Learner': [
     'courses:read',
+    'courses:write',
     'assessments:read',
     'knowledge:read',
     'certificates:read'

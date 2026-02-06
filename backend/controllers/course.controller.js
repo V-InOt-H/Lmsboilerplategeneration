@@ -120,7 +120,7 @@ exports.updateCourse = async (req, res) => {
 // @access  Private/Admin
 exports.deleteCourse = async (req, res) => {
   try {
-    const course = await Course.findByIdAndDelete(req.params.id);
+    const course = await Course.findById(req.params.id);
 
     if (!course) {
       return res.status(404).json({
@@ -128,6 +128,15 @@ exports.deleteCourse = async (req, res) => {
         message: 'Course not found'
       });
     }
+
+    // Remove course from all users' enrolledCourses arrays
+    await User.updateMany(
+      { 'enrolledCourses.course': course._id },
+      { $pull: { enrolledCourses: { course: course._id } } }
+    );
+
+    // Delete the course
+    await Course.findByIdAndDelete(course._id);
 
     res.status(200).json({
       success: true,

@@ -1,16 +1,33 @@
 import { useState, useEffect } from 'react';
 import { knowledgeAPI } from '../../../services/api';
 import { useAuth } from '../../../contexts/AuthContext';
-import { FileText, Plus, Search } from 'lucide-react';
+import { FileText, Plus, Search, Trash2 } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { toast } from 'sonner';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '../ui/alert-dialog';
 
-export default function KnowledgeBase({ onSelectArticle, onCreateArticle }) {
+type KnowledgeBaseProps = {
+  onSelectArticle: (article: any) => void;
+  onCreateArticle: () => void;
+};
+
+export default function KnowledgeBase({ onSelectArticle, onCreateArticle }: KnowledgeBaseProps) {
   const { hasRole } = useAuth();
-  const [articles, setArticles] = useState([]);
+  const [articles, setArticles] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [articleToDelete, setArticleToDelete] = useState<any>(null);
 
   useEffect(() => {
     fetchArticles();
@@ -25,6 +42,27 @@ export default function KnowledgeBase({ onSelectArticle, onCreateArticle }) {
       toast.error('Failed to load articles');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleDeleteClick = (e: React.MouseEvent, article: any) => {
+    e.stopPropagation();
+    setArticleToDelete(article);
+    setDeleteDialogOpen(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!articleToDelete) return;
+    
+    try {
+      await knowledgeAPI.delete(articleToDelete._id);
+      toast.success('Article deleted successfully!');
+      fetchArticles();
+    } catch (err) {
+      toast.error((err as Error).message || 'Failed to delete article');
+    } finally {
+      setDeleteDialogOpen(false);
+      setArticleToDelete(null);
     }
   };
 
@@ -74,15 +112,27 @@ export default function KnowledgeBase({ onSelectArticle, onCreateArticle }) {
             <div
               key={article._id}
               onClick={() => onSelectArticle(article)}
-              className="bg-white/10 backdrop-blur-xl rounded-2xl border border-white/20 p-6 hover:border-indigo-500/50 transition-all cursor-pointer"
+              className="bg-white/10 backdrop-blur-xl rounded-2xl border border-white/20 p-6 hover:border-indigo-500/50 transition-all cursor-pointer group"
             >
               <div className="flex items-start justify-between mb-3">
                 <FileText className="w-8 h-8 text-indigo-400" />
-                {article.status === 'Draft' && (
-                  <span className="px-2 py-1 bg-yellow-500/20 text-yellow-300 rounded-lg text-xs">
-                    Draft
-                  </span>
-                )}
+                <div className="flex items-center gap-2">
+                  {article.status === 'Draft' && (
+                    <span className="px-2 py-1 bg-yellow-500/20 text-yellow-300 rounded-lg text-xs">
+                      Draft
+                    </span>
+                  )}
+                  {hasRole('Super Admin', 'Admin', 'Trainer') && (
+                    <Button
+                      variant="destructive"
+                      size="icon"
+                      className="bg-red-500/20 hover:bg-red-500/30 text-red-300 border border-red-500/30 opacity-0 group-hover:opacity-100 transition-opacity"
+                      onClick={(e) => handleDeleteClick(e, article)}
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  )}
+                </div>
               </div>
               <h3 className="text-white font-bold text-lg mb-2 line-clamp-2">{article.title}</h3>
               <p className="text-indigo-200 text-sm mb-4 line-clamp-3">{article.content?.substring(0, 150)}...</p>
@@ -94,6 +144,29 @@ export default function KnowledgeBase({ onSelectArticle, onCreateArticle }) {
           ))}
         </div>
       )}
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent className="bg-gray-900 border-white/20">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-white">Delete Article</AlertDialogTitle>
+            <AlertDialogDescription className="text-indigo-300">
+              Are you sure you want to delete "{articleToDelete?.title}"? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="bg-white/10 text-white hover:bg-white/20">
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteConfirm}
+              className="bg-red-500 hover:bg-red-600 text-white"
+            >
+              Delete Article
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

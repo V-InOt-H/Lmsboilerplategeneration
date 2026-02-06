@@ -1,5 +1,6 @@
 const { Assessment, AssessmentResult } = require('../models/Assessment.model');
 const Notification = require('../models/Notification.model');
+const User = require('../models/User.model');
 
 // @desc    Get all assessments
 // @route   GET /api/assessments
@@ -9,10 +10,7 @@ exports.getAssessments = async (req, res) => {
     const { course, status } = req.query;
     const query = {};
 
-    if (req.user.role === 'Learner') {
-      query.status = 'Published';
-    }
-
+    // Show all assessments to all users (status determines visibility on learner dashboard)
     if (course) query.course = course;
     if (status) query.status = status;
 
@@ -78,6 +76,88 @@ exports.createAssessment = async (req, res) => {
   try {
     req.body.createdBy = req.user.id;
 
+    // Validate title
+    if (!req.body.title || req.body.title.trim() === '') {
+      return res.status(400).json({
+        success: false,
+        message: 'Assessment title is required'
+      });
+    }
+
+    // Validate that assessment has at least one question
+    if (!req.body.questions || req.body.questions.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Assessment must have at least one question'
+      });
+    }
+
+    // Validate each question has required fields
+    for (let i = 0; i < req.body.questions.length; i++) {
+      const q = req.body.questions[i];
+      
+      if (!q.question || q.question.trim() === '') {
+        return res.status(400).json({
+          success: false,
+          message: `Question ${i + 1}: Question text is required`
+        });
+      }
+      
+      if (!q.type) {
+        return res.status(400).json({
+          success: false,
+          message: `Question ${i + 1}: Question type is required`
+        });
+      }
+      
+      if (q.points === undefined || q.points === null || q.points < 1) {
+        return res.status(400).json({
+          success: false,
+          message: `Question ${i + 1}: Points must be at least 1`
+        });
+      }
+      
+      // Validate options for MCQ type
+      if (q.type === 'MCQ') {
+        if (!q.options || !Array.isArray(q.options) || q.options.length < 2) {
+          return res.status(400).json({
+            success: false,
+            message: `Question ${i + 1}: MCQ questions must have at least 2 options`
+          });
+        }
+        
+        // Check if options have content (non-empty strings)
+        const validOptions = q.options.filter(opt => opt && opt.trim() !== '');
+        if (validOptions.length < 2) {
+          return res.status(400).json({
+            success: false,
+            message: `Question ${i + 1}: At least 2 options must have text`
+          });
+        }
+      }
+      
+      // Validate correct answer
+      if (!q.correctAnswer || q.correctAnswer.trim() === '') {
+        return res.status(400).json({
+          success: false,
+          message: `Question ${i + 1}: Correct answer is required`
+        });
+      }
+      
+      // For MCQ, validate correct answer exists in options
+      if (q.type === 'MCQ' && q.options) {
+        const optionExists = q.options.some(
+          opt => opt && opt.trim() !== '' && opt.trim() === q.correctAnswer.trim()
+        );
+        if (!optionExists) {
+          return res.status(400).json({
+            success: false,
+            message: `Question ${i + 1}: Correct answer must match one of the options`
+          });
+        }
+      }
+    }
+
     const assessment = await Assessment.create(req.body);
 
     res.status(201).json({
@@ -97,6 +177,83 @@ exports.createAssessment = async (req, res) => {
 // @access  Private/Trainer/Admin
 exports.updateAssessment = async (req, res) => {
   try {
+    // Validate questions if provided
+    if (req.body.questions && req.body.questions.length > 0) {
+      // Validate title
+      if (req.body.title && (!req.body.title.trim())) {
+        return res.status(400).json({
+          success: false,
+          message: 'Assessment title cannot be empty'
+        });
+      }
+
+      // Validate each question has required fields
+      for (let i = 0; i < req.body.questions.length; i++) {
+        const q = req.body.questions[i];
+        
+        if (!q.question || q.question.trim() === '') {
+          return res.status(400).json({
+            success: false,
+            message: `Question ${i + 1}: Question text is required`
+          });
+        }
+        
+        if (!q.type) {
+          return res.status(400).json({
+            success: false,
+            message: `Question ${i + 1}: Question type is required`
+          });
+        }
+        
+        if (q.points === undefined || q.points === null || q.points < 1) {
+          return res.status(400).json({
+            success: false,
+            message: `Question ${i + 1}: Points must be at least 1`
+          });
+        }
+        
+        // Validate options for MCQ type
+        if (q.type === 'MCQ') {
+          if (!q.options || !Array.isArray(q.options) || q.options.length < 2) {
+            return res.status(400).json({
+              success: false,
+              message: `Question ${i + 1}: MCQ questions must have at least 2 options`
+            });
+          }
+          
+          // Check if options have content (non-empty strings)
+          const validOptions = q.options.filter(opt => opt && opt.trim() !== '');
+          if (validOptions.length < 2) {
+            return res.status(400).json({
+              success: false,
+              message: `Question ${i + 1}: At least 2 options must have text`
+            });
+          }
+        }
+        
+        // Validate correct answer
+        if (!q.correctAnswer || q.correctAnswer.trim() === '') {
+          return res.status(400).json({
+            success: false,
+            message: `Question ${i + 1}: Correct answer is required`
+          });
+        }
+        
+        // For MCQ, validate correct answer exists in options
+        if (q.type === 'MCQ' && q.options) {
+          const optionExists = q.options.some(
+            opt => opt && opt.trim() !== '' && opt.trim() === q.correctAnswer.trim()
+          );
+          if (!optionExists) {
+            return res.status(400).json({
+              success: false,
+              message: `Question ${i + 1}: Correct answer must match one of the options`
+            });
+          }
+        }
+      }
+    }
+
     const assessment = await Assessment.findByIdAndUpdate(
       req.params.id,
       req.body,
@@ -167,6 +324,29 @@ exports.submitAssessment = async (req, res) => {
       });
     }
 
+    // Check if assessment has questions
+    if (!assessment.questions || assessment.questions.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'This assessment has no questions'
+      });
+    }
+
+    // Check if user is enrolled in the course (if assessment is course-specific)
+    if (assessment.course) {
+      const user = await User.findById(req.user.id);
+      const isEnrolled = user.enrolledCourses.some(
+        e => e.course.toString() === assessment.course.toString()
+      );
+      
+      if (!isEnrolled) {
+        return res.status(403).json({
+          success: false,
+          message: 'You must be enrolled in this course to take this assessment'
+        });
+      }
+    }
+
     // Check attempt count
     const previousAttempts = await AssessmentResult.countDocuments({
       assessment: assessment._id,
@@ -177,6 +357,14 @@ exports.submitAssessment = async (req, res) => {
       return res.status(400).json({
         success: false,
         message: 'Maximum attempts reached'
+      });
+    }
+
+    // Validate answers
+    if (!answers || answers.length !== assessment.questions.length) {
+      return res.status(400).json({
+        success: false,
+        message: `Please answer all ${assessment.questions.length} questions`
       });
     }
 

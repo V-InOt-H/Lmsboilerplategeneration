@@ -34,8 +34,7 @@ const assessmentSchema = new mongoose.Schema({
   },
   course: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'Course',
-    required: true
+    ref: 'Course'
   },
   module: {
     type: mongoose.Schema.Types.ObjectId,

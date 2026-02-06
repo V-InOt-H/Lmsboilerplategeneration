@@ -85,7 +85,7 @@ export default function Sidebar({ currentView, onNavigate }: { currentView: stri
 
   const roleInfo = getRoleInfo();
 
-  // Menu items with permission requirements
+// Menu items with permission requirements
   const menuItems: MenuItem[] = [
     {
       id: 'dashboard',
@@ -100,6 +100,14 @@ export default function Sidebar({ currentView, onNavigate }: { currentView: stri
       icon: BookOpen, 
       permission: 'courses:read',
       path: '/courses'
+    },
+    { 
+      id: 'enrollments',
+      label: 'Enrollments', 
+      icon: Users, 
+      permission: 'users:read',
+      path: '/enrollments',
+      roles: ['Super Admin', 'Admin', 'HR', 'Trainer']
     },
     { 
       id: 'assessments', 
