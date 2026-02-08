@@ -17,26 +17,25 @@ router.use(protect);
 // Get enrollment statistics - requires analytics:read permission
 router.get('/stats', authorizeWithPermission('analytics:read'), getEnrollmentStats);
 
-// Get all enrollments with filtering - requires users:read permission
-router.get('/', authorizeWithPermission('users:read'), getAllEnrollments);
+// Get all enrollments with filtering - requires enrollments:read permission
+router.get('/', authorizeWithPermission('enrollments:read'), getAllEnrollments);
 
-// Bulk enroll users - requires users:write permission
-router.post('/bulk', authorizeWithPermission('users:write'), bulkEnrollUsers);
+// Bulk enroll users - requires enrollments:create permission
+router.post('/bulk', authorizeWithPermission('enrollments:create'), bulkEnrollUsers);
 
-// Enroll a single user - requires users:write permission
-router.post('/', authorizeWithPermission('users:write'), enrollUser);
+// Enroll a single user - requires enrollments:create permission
+router.post('/', authorizeWithPermission('enrollments:create'), enrollUser);
 
 // Get enrollments for a specific user
-router.get('/user/:userId', authorizeWithPermission('users:read'), getUserEnrollments);
+router.get('/user/:userId', authorizeWithPermission('enrollments:read'), getUserEnrollments);
 
 // Get enrollments for a specific course
-router.get('/course/:courseId', authorizeWithPermission('courses:read'), getCourseEnrollments);
+router.get('/course/:courseId', authorizeWithPermission('enrollments:read'), getCourseEnrollments);
 
 // Update enrollment progress
-router.put('/:userId/:courseId', authorizeWithPermission('users:write'), updateEnrollment);
+router.put('/:userId/:courseId', authorizeWithPermission('enrollments:update'), updateEnrollment);
 
-// Remove enrollment - requires users:delete permission
-router.delete('/:userId/:courseId', authorizeWithPermission('users:delete'), removeEnrollment);
+// Remove enrollment - requires enrollments:update permission
+router.delete('/:userId/:courseId', authorizeWithPermission('enrollments:update'), removeEnrollment);
 
 module.exports = router;
-

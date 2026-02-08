@@ -122,6 +122,7 @@
 @layer base {
   * {
     @apply border-border outline-ring/50;
+    user-select: none;
   }
 
   html, body {
@@ -130,6 +131,7 @@
     margin: 0;
     padding: 0;
     overflow: hidden;
+    cursor: default;
   }
 
   #root {
@@ -185,5 +187,21 @@
     font-size: var(--text-base);
     font-weight: var(--font-weight-normal);
     line-height: 1.5;
+  }
+
+  /* Allow text selection on inputs and textareas */
+  input, textarea {
+    user-select: text;
+    cursor: text;
+  }
+
+  /* Allow text selection on content areas */
+  p, h1, h2, h3, h4, h5, h6, span, div {
+    cursor: default;
+  }
+
+  /* Ensure interactive elements show pointer cursor */
+  button, a, [role="button"], .cursor-pointer {
+    cursor: pointer;
   }
 }

@@ -9,6 +9,7 @@ export default function Analytics() {
   const [analytics, setAnalytics] = useState<any>(null);
   const [enrollmentData, setEnrollmentData] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [exporting, setExporting] = useState<string | null>(null);
 
   useEffect(() => {
     fetchAnalytics();
@@ -58,16 +59,51 @@ export default function Analytics() {
   };
 
   const handleExport = async (type: string) => {
+    setExporting(type);
     try {
       await analyticsAPI.export(type);
-      toast.success('Export started!');
+      toast.success('Report downloaded successfully!');
     } catch (err) {
       toast.error('Failed to export data');
+    } finally {
+      setExporting(null);
     }
   };
 
   if (loading) {
-    return <div className="text-white">Loading analytics...</div>;
+    return (
+      <div className="space-y-6 p-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <div className="h-8 w-48 bg-white/10 rounded animate-pulse mb-1" />
+            <div className="h-4 w-64 bg-white/10 rounded animate-pulse" />
+          </div>
+          <div className="flex gap-2">
+            <div className="h-10 w-28 bg-white/10 rounded animate-pulse" />
+            <div className="h-10 w-32 bg-white/10 rounded animate-pulse" />
+          </div>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="bg-white/10 backdrop-blur-xl rounded-2xl border border-white/20 p-6">
+              <div className="flex items-center justify-between mb-4">
+                <div className="w-12 h-12 bg-white/10 rounded-xl animate-pulse" />
+              </div>
+              <div className="h-4 w-24 bg-white/10 rounded animate-pulse mb-2" />
+              <div className="h-8 w-20 bg-white/10 rounded animate-pulse" />
+            </div>
+          ))}
+        </div>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {Array.from({ length: 2 }).map((_, i) => (
+            <div key={i} className="bg-white/10 backdrop-blur-xl rounded-2xl border border-white/20 p-6">
+              <div className="h-6 w-32 bg-white/10 rounded animate-pulse mb-6" />
+              <div className="h-64 bg-white/10 rounded animate-pulse" />
+            </div>
+          ))}
+        </div>
+      </div>
+    );
   }
 
   const overview = analytics?.overview || {};
@@ -85,13 +121,31 @@ export default function Analytics() {
           <p className="text-indigo-300 mt-1">Comprehensive insights and reports</p>
         </div>
         <div className="flex gap-2">
-          <Button onClick={() => handleExport('users')} variant="ghost" className="text-indigo-300 hover:text-white hover:bg-white/10">
-            <Download className="w-4 h-4 mr-2" />
-            Export Users
+          <Button 
+            onClick={() => handleExport('users')} 
+            variant="ghost" 
+            className="text-indigo-300 hover:text-white hover:bg-white/10"
+            disabled={exporting === 'users'}
+          >
+            {exporting === 'users' ? (
+              <div className="w-4 h-4 border-2 border-indigo-300 border-t-transparent rounded-full animate-spin mr-2" />
+            ) : (
+              <Download className="w-4 h-4 mr-2" />
+            )}
+            {exporting === 'users' ? 'Exporting...' : 'Export Users'}
           </Button>
-          <Button onClick={() => handleExport('courses')} variant="ghost" className="text-indigo-300 hover:text-white hover:bg-white/10">
-            <Download className="w-4 h-4 mr-2" />
-            Export Courses
+          <Button 
+            onClick={() => handleExport('courses')} 
+            variant="ghost" 
+            className="text-indigo-300 hover:text-white hover:bg-white/10"
+            disabled={exporting === 'courses'}
+          >
+            {exporting === 'courses' ? (
+              <div className="w-4 h-4 border-2 border-indigo-300 border-t-transparent rounded-full animate-spin mr-2" />
+            ) : (
+              <Download className="w-4 h-4 mr-2" />
+            )}
+            {exporting === 'courses' ? 'Exporting...' : 'Export Courses'}
           </Button>
         </div>
       </div>

@@ -95,44 +95,49 @@ const ROLE_PERMISSIONS = {
     'knowledge:update',
     'knowledge:delete',
     'certificates:read',
-    'certificates:create'
+    'certificates:create',
+    'enrollments:read',
+    'enrollments:create',
+    'enrollments:update',
+    'enrollments:delete'
   ],
   'Admin': [
     'users:read',
     'users:create',
     'users:update',
+    'users:delete',
     'users:deactivate',
     'courses:read',
-    'courses:create',
-    'courses:update',
-    'courses:delete',
     'courses:publish',
-    'assessments:read',
-    'assessments:create',
-    'assessments:update',
-    'assessments:delete',
-    'assessments:grade',
-    'assessments:view-results',
-    'analytics:read',
-    'analytics:export',
-    'settings:read',
+    'courses:assign',
     'knowledge:read',
     'knowledge:create',
     'knowledge:update',
     'knowledge:delete',
-    'certificates:read',
-    'certificates:create'
+    'analytics:read',
+    'analytics:export',
+    'enrollments:read',
+    'enrollments:create',
+    'enrollments:update'
   ],
   'HR': [
     'users:read',
     'users:create',
     'users:update',
+    'users:delete',
+    'users:deactivate',
     'courses:read',
-    'assessments:read',
-    'assessments:view-results',
-    'analytics:read',
+    'courses:publish',
+    'courses:assign',
     'knowledge:read',
-    'certificates:read'
+    'knowledge:create',
+    'knowledge:update',
+    'knowledge:delete',
+    'analytics:read',
+    'analytics:export',
+    'enrollments:read',
+    'enrollments:create',
+    'enrollments:update'
   ],
   'Trainer': [
     'courses:read',
@@ -160,8 +165,10 @@ const ROLE_PERMISSIONS = {
     'assessments:read',
     'assessments:view-results',
     'knowledge:read',
-    'certificates:read'
+    'certificates:read',
+    'certificates:create'
   ]
+
 };
 
 /**
@@ -320,4 +327,3 @@ module.exports = {
   canAccessResource,
   getRoleInfo
 };
-

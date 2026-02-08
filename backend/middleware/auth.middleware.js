@@ -115,8 +115,8 @@ exports.authorizeResource = (resourceOwnerField = 'userId') => {
     const userRole = req.user.role;
     const userId = req.user._id.toString();
     
-    // Super Admin and Admin have full access
-    if (userRole === 'Super Admin' || userRole === 'Admin') {
+    // Super Admin, Admin, and HR have full access to user resources
+    if (userRole === 'Super Admin' || userRole === 'Admin' || userRole === 'HR') {
       return next();
     }
     

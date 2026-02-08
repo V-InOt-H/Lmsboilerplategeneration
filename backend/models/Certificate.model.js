@@ -13,7 +13,6 @@ const certificateSchema = new mongoose.Schema({
   },
   certificateNumber: {
     type: String,
-    required: true,
     unique: true
   },
   issuedDate: {

@@ -4,23 +4,26 @@ const {
   getCertificates,
   getCertificate,
   generateCertificate,
-  verifyCertificate
+  verifyCertificate,
+  downloadCertificate
 } = require('../controllers/certificate.controller');
 const { protect, authorizeWithPermission } = require('../middleware/auth.middleware');
 
 router.use(protect);
 
-// Get all certificates - requires authentication
-router.get('/', getCertificates);
+// Get all certificates - requires certificates:read permission
+router.get('/', authorizeWithPermission('certificates:read'), getCertificates);
 
-// Generate certificate - requires courses:write permission (for self-enrollment)
-router.post('/generate', authorizeWithPermission('courses:write'), generateCertificate);
+// Generate certificate - requires certificates:create permission
+router.post('/generate', authorizeWithPermission('certificates:create'), generateCertificate);
 
-// Verify certificate - public route
+// Verify certificate - public route (no auth required)
 router.get('/verify/:certificateId', verifyCertificate);
 
-// Get single certificate by ID or certificateId
-router.get('/:id', getCertificate);
+// Download certificate as PDF - requires certificates:read permission
+router.get('/:id/download', authorizeWithPermission('certificates:read'), downloadCertificate);
+
+// Get single certificate by ID or certificateId - requires certificates:read permission
+router.get('/:id', authorizeWithPermission('certificates:read'), getCertificate);
 
 module.exports = router;
-

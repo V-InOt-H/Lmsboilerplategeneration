@@ -4,7 +4,7 @@ import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
 import { cn } from '../ui/utils';
-import { GraduationCap, Mail, Lock, User, AlertCircle, CheckCircle } from 'lucide-react';
+import { GraduationCap, Mail, Lock, User, AlertCircle, CheckCircle, Eye, EyeOff } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface LoginProps {
@@ -22,6 +22,7 @@ export default function Login({ onForgotPassword }: LoginProps) {
   const [isRegistering, setIsRegistering] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [name, setName] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -180,14 +181,21 @@ export default function Login({ onForgotPassword }: LoginProps) {
                 <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-indigo-300" />
                 <Input
                   id="password"
-                  type="password"
+                  type={showPassword ? 'text' : 'password'}
                   value={password}
                   onChange={handlePasswordChange}
                   placeholder="••••••••"
                   required
                   minLength={6}
-                  className="pl-11 bg-white/10 border-white/20 text-white placeholder:text-indigo-300 focus:bg-white/15"
+                  className="pl-11 pr-11 bg-white/10 border-white/20 text-white placeholder:text-indigo-300 focus:bg-white/15"
                 />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-indigo-300 hover:text-white transition-colors"
+                >
+                  {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                </button>
               </div>
               
               {/* Password Strength Indicator (Registration only) */}

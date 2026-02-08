@@ -45,25 +45,23 @@ export const ROLE_PERMISSIONS: Record<RoleType, string[]> = {
     'certificates:read', 'certificates:write', 'certificates:delete',
     'analytics:read', 'analytics:write',
     'settings:read', 'settings:write',
-    'notifications:read', 'notifications:write'
+    'notifications:read', 'notifications:write',
+    'enrollments:read', 'enrollments:create', 'enrollments:update', 'enrollments:delete'
   ],
   'Admin': [
-    'users:read', 'users:write',
-    'courses:read', 'courses:write',
-    'assessments:read', 'assessments:write',
-    'knowledge:read', 'knowledge:write',
-    'certificates:read', 'certificates:write',
-    'analytics:read',
-    'settings:read', 'settings:write',
-    'notifications:read', 'notifications:write'
+    'users:read', 'users:create', 'users:update', 'users:delete', 'users:deactivate',
+    'courses:read', 'courses:publish', 'courses:assign',
+    'knowledge:read', 'knowledge:create', 'knowledge:update', 'knowledge:delete',
+    'analytics:read', 'analytics:export',
+    'enrollments:read', 'enrollments:create', 'enrollments:update',
+    'notifications:read'
   ],
   'HR': [
-    'users:read', 'users:write',
-    'courses:read',
-    'assessments:read',
-    'knowledge:read',
-    'certificates:read',
-    'analytics:read',
+    'users:read', 'users:create', 'users:update', 'users:delete', 'users:deactivate',
+    'courses:read', 'courses:publish', 'courses:assign',
+    'knowledge:read', 'knowledge:create', 'knowledge:update', 'knowledge:delete',
+    'analytics:read', 'analytics:export',
+    'enrollments:read', 'enrollments:create', 'enrollments:update',
     'notifications:read'
   ],
   'Trainer': [
@@ -77,8 +75,10 @@ export const ROLE_PERMISSIONS: Record<RoleType, string[]> = {
     'courses:read',
     'courses:write',
     'assessments:read',
+    'assessments:view-results',
     'knowledge:read',
-    'certificates:read'
+    'certificates:read',
+    'certificates:write'
   ]
 };
 

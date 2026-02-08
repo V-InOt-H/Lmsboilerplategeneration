@@ -1,6 +1,8 @@
 const { Assessment, AssessmentResult } = require('../models/Assessment.model');
 const Notification = require('../models/Notification.model');
 const User = require('../models/User.model');
+const Certificate = require('../models/Certificate.model');
+const Course = require('../models/Course.model');
 
 // @desc    Get all assessments
 // @route   GET /api/assessments
@@ -22,6 +24,75 @@ exports.getAssessments = async (req, res) => {
       success: true,
       count: assessments.length,
       assessments
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+};
+
+// @desc    Get single assessment with course completion status
+// @route   GET /api/assessments/:id/with-course
+// @access  Private/Learner
+exports.getAssessmentWithCourse = async (req, res) => {
+  try {
+    const assessment = await Assessment.findById(req.params.id)
+      .populate('course', 'title');
+
+    if (!assessment) {
+      return res.status(404).json({
+        success: false,
+        message: 'Assessment not found'
+      });
+    }
+
+    // Don't send correct answers to learners
+    let questions = assessment.questions;
+    if (req.user.role === 'Learner') {
+      questions = assessment.questions.map(q => ({
+        _id: q._id,
+        question: q.question,
+        type: q.type,
+        options: q.options,
+        points: q.points
+      }));
+    }
+
+    // Check user's course completion status
+    let courseCompleted = false;
+    if (assessment.course) {
+      const user = await User.findById(req.user.id);
+      const enrollment = user.enrolledCourses.find(
+        e => e.course.toString() === assessment.course._id.toString()
+      );
+      courseCompleted = enrollment && enrollment.status === 'Completed';
+    }
+
+    // Check if user has already passed
+    const passedResult = await AssessmentResult.findOne({
+      assessment: assessment._id,
+      user: req.user.id,
+      passed: true
+    });
+
+    res.status(200).json({
+      success: true,
+      assessment: {
+        _id: assessment._id,
+        title: assessment.title,
+        description: assessment.description,
+        course: assessment.course,
+        questions,
+        status: assessment.status,
+        duration: assessment.duration,
+        passingScore: assessment.passingScore,
+        attempts: assessment.attempts,
+        attemptNumber: passedResult ? passedResult.attemptNumber : null
+      },
+      courseCompleted,
+      alreadyPassed: !!passedResult
     });
   } catch (error) {
     res.status(500).json({
@@ -332,19 +403,56 @@ exports.submitAssessment = async (req, res) => {
       });
     }
 
+    // Check if assessment is published
+    if (assessment.status !== 'Published') {
+      return res.status(400).json({
+        success: false,
+        message: 'This assessment is not available for taking'
+      });
+    }
+
     // Check if user is enrolled in the course (if assessment is course-specific)
     if (assessment.course) {
       const user = await User.findById(req.user.id);
-      const isEnrolled = user.enrolledCourses.some(
+      const enrollment = user.enrolledCourses.find(
         e => e.course.toString() === assessment.course.toString()
       );
       
-      if (!isEnrolled) {
+      if (!enrollment) {
         return res.status(403).json({
           success: false,
           message: 'You must be enrolled in this course to take this assessment'
         });
       }
+
+      // Check if course is completed
+      if (enrollment.status !== 'Completed') {
+        return res.status(403).json({
+          success: false,
+          message: 'You must complete all lessons in the course before taking this assessment'
+        });
+      }
+    }
+
+    // Check if already passed
+    const alreadyPassed = await AssessmentResult.findOne({
+      assessment: assessment._id,
+      user: req.user.id,
+      passed: true
+    });
+
+    if (alreadyPassed) {
+      return res.status(400).json({
+        success: false,
+        message: 'You have already passed this assessment',
+        result: {
+          score: alreadyPassed.score,
+          totalPoints: alreadyPassed.totalPoints,
+          percentage: alreadyPassed.percentage,
+          passed: true,
+          attemptNumber: alreadyPassed.attemptNumber
+        }
+      });
     }
 
     // Check attempt count
@@ -405,15 +513,51 @@ exports.submitAssessment = async (req, res) => {
       timeTaken
     });
 
-    // Create notification
+    // If passed, generate certificate
+    let certificate = null;
+    if (passed && assessment.course) {
+      // Check if certificate already exists
+      const existingCert = await Certificate.findOne({
+        user: req.user.id,
+        course: assessment.course
+      });
+
+      if (!existingCert) {
+        // Generate unique certificate number
+        const certCount = await Certificate.countDocuments();
+        const certificateNumber = `CERT-${Date.now().toString(36).toUpperCase()}-${(certCount + 1).toString().padStart(4, '0')}`;
+
+        certificate = await Certificate.create({
+          user: req.user.id,
+          course: assessment.course,
+          certificateNumber,
+          issuedDate: new Date(),
+          completionDate: new Date(),
+          finalScore: percentage
+        });
+
+        // Create certificate notification
+        await Notification.create({
+          user: req.user.id,
+          type: 'Certificate',
+          title: 'Certificate Earned!',
+          message: `Congratulations! You have earned a certificate for completing ${assessment.title}`,
+          link: `/certificates/${certificate._id}`
+        });
+      }
+    }
+
+    // Create assessment result notification
     await Notification.create({
       user: req.user.id,
-      type: 'Assessment',
+      type: passed ? 'Assessment' : 'Assessment',
       title: passed ? 'Assessment Passed!' : 'Assessment Completed',
-      message: `You scored ${percentage.toFixed(0)}% on ${assessment.title}`,
+      message: `You scored ${percentage.toFixed(0)}% on ${assessment.title}. ${passed ? 'You have earned a certificate!' : 'Keep learning and try again.'}`,
       link: `/assessments/${assessment._id}/results/${result._id}`,
       metadata: {
-        assessment: assessment._id
+        assessment: assessment._id,
+        passed,
+        certificateId: certificate?._id
       }
     });
 
@@ -424,7 +568,8 @@ exports.submitAssessment = async (req, res) => {
         totalPoints,
         percentage,
         passed,
-        attemptNumber: previousAttempts + 1
+        attemptNumber: previousAttempts + 1,
+        certificateId: certificate?._id
       }
     });
   } catch (error) {

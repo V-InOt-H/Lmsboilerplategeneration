@@ -25,7 +25,20 @@ export default function Certificates() {
 
   useEffect(() => {
     fetchCertificates();
-  }, []);
+    
+    // Add Ctrl+T keyboard shortcut listener for quick certificate access
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.ctrlKey && e.key === 't') {
+        e.preventDefault();
+        if (certificates.length > 0) {
+          handleViewCertificate(certificates[0].certificateNumber);
+        }
+      }
+    };
+    
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [certificates.length]);
 
   const fetchCertificates = async () => {
     try {
@@ -41,6 +54,20 @@ export default function Certificates() {
 
   const handleViewCertificate = (certificateId: string) => {
     window.open(`/certificates/${certificateId}`, '_blank');
+  };
+
+  const handleDownloadCertificate = async (certificateId: string) => {
+    try {
+      toast.info('Preparing certificate...');
+      const result = await certificatesAPI.download(certificateId);
+      if (result.type === 'html') {
+        toast.success('Certificate opened! Use Ctrl+P to save as PDF');
+      } else {
+        toast.success('Certificate downloaded successfully!');
+      }
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to download certificate');
+    }
   };
 
   if (loading) {
@@ -112,13 +139,22 @@ export default function Certificates() {
                   <span>{new Date(cert.completionDate || cert.issuedAt).toLocaleDateString()}</span>
                 </div>
 
-                <Button
-                  onClick={() => handleViewCertificate(cert.certificateNumber)}
-                  className="w-full bg-yellow-500/20 hover:bg-yellow-500/30 text-yellow-300 border border-yellow-500/30"
-                >
-                  <ExternalLink className="w-4 h-4 mr-2" />
-                  View Certificate
-                </Button>
+                <div className="flex gap-2">
+                  <Button
+                    onClick={() => handleViewCertificate(cert.certificateNumber)}
+                    className="flex-1 bg-yellow-500/20 hover:bg-yellow-500/30 text-yellow-300 border border-yellow-500/30"
+                  >
+                    <ExternalLink className="w-4 h-4 mr-2" />
+                    View
+                  </Button>
+                  <Button
+                    onClick={() => handleDownloadCertificate(cert._id)}
+                    className="flex-1 bg-gradient-to-r from-yellow-500 to-orange-600 hover:from-yellow-600 hover:to-orange-700"
+                  >
+                    <Download className="w-4 h-4 mr-2" />
+                    Download
+                  </Button>
+                </div>
               </div>
             </div>
           ))}
@@ -127,4 +163,3 @@ export default function Certificates() {
     </div>
   );
 }
-

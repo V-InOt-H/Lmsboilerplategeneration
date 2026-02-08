@@ -1,6 +1,8 @@
 const User = require('../models/User.model');
 const Course = require('../models/Course.model');
 const Notification = require('../models/Notification.model');
+const { sendEmail } = require('../config/email');
+const { getEnrollmentEmailTemplate, getBulkEnrollmentEmailTemplate } = require('../utils/emailTemplates');
 
 // @desc    Get all enrollments
 // @route   GET /api/enrollments
@@ -242,9 +244,12 @@ exports.bulkEnrollUsers = async (req, res) => {
 
     const enrollments = [];
     const notifications = [];
+    const enrollmentEmails = [];
 
     // Process each user and course combination
     for (const user of users) {
+      const userEnrolledCourses = [];
+      
       for (const course of courses) {
         // Check if already enrolled
         const alreadyEnrolled = user.enrolledCourses.some(
@@ -276,6 +281,7 @@ exports.bulkEnrollUsers = async (req, res) => {
             link: `/courses/${course._id}`
           });
 
+          // Add to enrollment data
           enrollments.push({
             userId: user._id,
             userName: user.name,
@@ -284,9 +290,46 @@ exports.bulkEnrollUsers = async (req, res) => {
             enrolledAt: enrollDate,
             status: 'In Progress'
           });
+
+          // Collect course info for email
+          userEnrolledCourses.push({
+            _id: course._id,
+            title: course.title,
+            description: course.description,
+            thumbnail: course.thumbnail,
+            category: course.category
+          });
         }
       }
+
+      // Send email notification if user was enrolled in any courses
+      if (userEnrolledCourses.length > 0) {
+        enrollmentEmails.push({
+          to: user.email,
+          subject: userEnrolledCourses.length > 1 
+            ? `You've been enrolled in ${userEnrolledCourses.length} courses!`
+            : `You've been enrolled in: ${userEnrolledCourses[0].title}`,
+          html: userEnrolledCourses.length > 1 
+            ? getBulkEnrollmentEmailTemplate(user.name, userEnrolledCourses)
+            : getEnrollmentEmailTemplate(
+                user.name,
+                userEnrolledCourses[0].title,
+                userEnrolledCourses[0].description,
+                userEnrolledCourses[0].thumbnail
+              )
+        });
+      }
     }
+
+    // Send all email notifications
+    const emailPromises = enrollmentEmails.map(emailData => 
+      sendEmail(emailData).catch(err => {
+        console.error(`Failed to send enrollment email to ${emailData.to}:`, err);
+      })
+    );
+    
+    // Don't wait for emails to complete - send in background
+    Promise.all(emailPromises).catch(err => console.error('Email sending errors:', err));
 
     // Create all notifications
     if (notifications.length > 0) {
@@ -298,7 +341,8 @@ exports.bulkEnrollUsers = async (req, res) => {
       message: `Successfully enrolled ${enrollments.length} user(s) in course(s)`,
       enrolledCount: enrollments.length,
       alreadyEnrolledCount: (userIds.length * courseIds.length) - enrollments.length,
-      enrollments
+      enrollments,
+      emailsSent: enrollmentEmails.length
     });
   } catch (error) {
     res.status(500).json({
@@ -358,7 +402,7 @@ exports.enrollUser = async (req, res) => {
       await course.save();
     }
 
-    // Create notification
+    // Create in-app notification
     await Notification.create({
       user: user._id,
       type: 'Enrollment',
@@ -366,6 +410,23 @@ exports.enrollUser = async (req, res) => {
       message: `You have been enrolled in ${course.title}`,
       link: `/courses/${course._id}`
     });
+
+    // Send email notification
+    try {
+      await sendEmail({
+        to: user.email,
+        subject: `You've been enrolled in: ${course.title}`,
+        html: getEnrollmentEmailTemplate(
+          user.name,
+          course.title,
+          course.description,
+          course.thumbnail
+        )
+      });
+      console.log(`Enrollment email sent to ${user.email}`);
+    } catch (emailError) {
+      console.error(`Failed to send enrollment email to ${user.email}:`, emailError);
+    }
 
     res.status(200).json({
       success: true,

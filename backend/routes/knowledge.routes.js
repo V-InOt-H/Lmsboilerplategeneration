@@ -21,7 +21,7 @@ router
 router
   .route('/:id')
   .get(authorizeWithPermission('knowledge:read'), getArticle)
-  .put(authorizeResource('createdBy'), authorizeWithPermission('knowledge:update'), updateArticle)
+  .put(authorizeWithPermission('knowledge:update'), updateArticle)
   .delete(authorizeWithPermission('knowledge:delete'), deleteArticle);
 
 module.exports = router;

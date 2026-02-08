@@ -7,6 +7,15 @@ import {
   isRoleType
 } from '../utils/permissions';
 
+// Enrollment type definition - course can be string ID or populated object
+interface Enrollment {
+  course: string | { _id: string; title?: string; thumbnail?: string; category?: string };
+  enrolledAt: string;
+  progress: number;
+  status: string;
+  completedLessons: string[];
+}
+
 // User type definition
 interface User {
   _id: string;
@@ -14,6 +23,7 @@ interface User {
   email: string;
   role: string;
   department?: string;
+  enrolledCourses?: Enrollment[];
 }
 
 // Auth Context type
@@ -32,6 +42,7 @@ interface AuthContextType {
   permissions: string[];
   isAuthenticated: boolean;
   role: string | null;
+  refreshUser: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -179,6 +190,24 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     return roleInfo[user.role] || { label: user.role, color: 'bg-gray-500/20 text-gray-300', icon: '' };
   };
 
+  // Refresh user data from server
+  const refreshUser = async () => {
+    const token = localStorage.getItem('token');
+    if (token) {
+      try {
+        const response = await authAPI.getMe();
+        setUser(response.user);
+        // Set permissions based on role using centralized definitions
+        const userRole = response.user.role;
+        if (isRoleType(userRole)) {
+          setPermissions(ROLE_PERMISSIONS[userRole] || []);
+        }
+      } catch (err) {
+        console.error('Failed to refresh user:', err);
+      }
+    }
+  };
+
   const isAuth: boolean = !!user;
   const userRole: string | null = user ? user.role : null;
 
@@ -196,9 +225,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     getRoleInfo,
     permissions,
     isAuthenticated: isAuth as boolean,
-    role: userRole
+    role: userRole,
+    refreshUser
   };
 
   return <AuthContext.Provider value={contextValue}>{children}</AuthContext.Provider>;
 };
-

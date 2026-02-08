@@ -75,7 +75,62 @@ export default function AdminDashboard({ onNavigate }: AdminDashboardProps) {
   };
 
   if (loading) {
-    return <div className="text-white">Loading...</div>;
+    return (
+      <div className="space-y-6 p-6">
+        {/* Welcome Banner */}
+        <div className="bg-gradient-to-r from-indigo-500 to-purple-600 rounded-2xl p-8 h-36">
+          <div className="h-8 w-64 bg-white/20 rounded animate-pulse mb-2" />
+          <div className="h-4 w-96 bg-white/20 rounded animate-pulse" />
+        </div>
+
+        {/* Stats Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="bg-white/10 backdrop-blur-xl rounded-2xl border border-white/20 p-6">
+              <div className="flex items-center justify-between mb-4">
+                <div className="w-12 h-12 bg-white/10 rounded-xl animate-pulse" />
+              </div>
+              <div className="h-4 w-24 bg-white/10 rounded animate-pulse mb-2" />
+              <div className="h-8 w-20 bg-white/10 rounded animate-pulse" />
+            </div>
+          ))}
+        </div>
+
+        {/* Two Column Layout */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {Array.from({ length: 2 }).map((_, i) => (
+            <div key={i} className="bg-white/10 backdrop-blur-xl rounded-2xl border border-white/20 p-6">
+              <div className="h-6 w-32 bg-white/10 rounded animate-pulse mb-6" />
+              <div className="space-y-4">
+                {Array.from({ length: 3 }).map((_, j) => (
+                  <div key={j} className="h-20 bg-white/10 rounded animate-pulse" />
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Recent Assessment Results */}
+        <div className="bg-white/10 backdrop-blur-xl rounded-2xl border border-white/20 p-6">
+          <div className="h-6 w-40 bg-white/10 rounded animate-pulse mb-6" />
+          <div className="space-y-3">
+            {Array.from({ length: 5 }).map((_, i) => (
+              <div key={i} className="h-16 bg-white/10 rounded animate-pulse" />
+            ))}
+          </div>
+        </div>
+
+        {/* Quick Actions */}
+        <div className="bg-white/10 backdrop-blur-xl rounded-2xl border border-white/20 p-6">
+          <div className="h-6 w-32 bg-white/10 rounded animate-pulse mb-4" />
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className="h-12 bg-white/10 rounded animate-pulse" />
+            ))}
+          </div>
+        </div>
+      </div>
+    );
   }
 
   const overview: Overview = analytics?.overview || {

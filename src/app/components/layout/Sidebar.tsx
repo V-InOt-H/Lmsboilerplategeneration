@@ -102,19 +102,20 @@ export default function Sidebar({ currentView, onNavigate }: { currentView: stri
       path: '/courses'
     },
     { 
-      id: 'enrollments',
+      id: 'enrollments', 
       label: 'Enrollments', 
       icon: Users, 
-      permission: 'users:read',
+      permission: 'enrollments:read',
       path: '/enrollments',
-      roles: ['Super Admin', 'Admin', 'HR', 'Trainer']
+      roles: ['Super Admin', 'Admin', 'HR']
     },
     { 
       id: 'assessments', 
       label: 'Assessments', 
       icon: ClipboardCheck, 
       permission: 'assessments:read',
-      path: '/assessments'
+      path: '/assessments',
+      roles: ['Super Admin', 'Trainer', 'Learner']
     },
     { 
       id: 'knowledge', 
@@ -128,15 +129,16 @@ export default function Sidebar({ currentView, onNavigate }: { currentView: stri
       label: 'Certificates', 
       icon: Award, 
       permission: 'certificates:read',
-      path: '/certificates'
+      path: '/certificates',
+      roles: ['Learner']
     },
     { 
       id: 'analytics', 
-      label: 'Analytics', 
+      label: 'Reports', 
       icon: BarChart3, 
       permission: 'analytics:read',
       path: '/analytics',
-      roles: ['Super Admin', 'Admin', 'HR', 'Trainer']
+      roles: ['Super Admin', 'Admin', 'HR']
     },
     { 
       id: 'users', 
@@ -152,8 +154,9 @@ export default function Sidebar({ currentView, onNavigate }: { currentView: stri
       icon: Settings, 
       permission: 'settings:read',
       path: '/settings',
-      roles: ['Super Admin', 'Admin']
+      roles: ['Super Admin']
     },
+
   ];
 
   // Filter menu items based on permissions and roles

@@ -236,19 +236,12 @@ exports.forgotPassword = async (req, res) => {
       html: emailHtml
     });
 
-    // In development, also return the reset URL for testing
-    if (process.env.NODE_ENV === 'development') {
-      res.status(200).json({
-        success: true,
-        message: 'Password reset email sent',
-        resetUrl: resetUrl // For development only
-      });
-    } else {
-      res.status(200).json({
-        success: true,
-        message: 'Password reset email sent'
-      });
-    }
+    // Always send real email - development mode only shows additional debug info
+    res.status(200).json({
+      success: true,
+      message: 'Password reset email sent',
+      resetUrl: process.env.NODE_ENV === 'development' ? resetUrl : undefined
+    });
   } catch (error) {
     res.status(500).json({
       success: false,

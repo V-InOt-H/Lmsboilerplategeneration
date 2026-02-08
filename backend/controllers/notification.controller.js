@@ -28,6 +28,28 @@ exports.getNotifications = async (req, res) => {
   }
 };
 
+// @desc    Get unread count
+// @route   GET /api/notifications/unread-count
+// @access  Private
+exports.getUnreadCount = async (req, res) => {
+  try {
+    const unreadCount = await Notification.countDocuments({
+      user: req.user.id,
+      isRead: false
+    });
+
+    res.status(200).json({
+      success: true,
+      unreadCount
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+};
+
 // @desc    Mark notification as read
 // @route   PUT /api/notifications/:id/read
 // @access  Private
@@ -49,6 +71,28 @@ exports.markAsRead = async (req, res) => {
     res.status(200).json({
       success: true,
       notification
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+};
+
+// @desc    Mark all notifications as read
+// @route   PUT /api/notifications/read-all
+// @access  Private
+exports.markAllAsRead = async (req, res) => {
+  try {
+    await Notification.updateMany(
+      { user: req.user.id, isRead: false },
+      { isRead: true }
+    );
+
+    res.status(200).json({
+      success: true,
+      message: 'All notifications marked as read'
     });
   } catch (error) {
     res.status(500).json({

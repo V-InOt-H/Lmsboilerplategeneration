@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ArrowLeft, Plus, Trash2, Save, GripVertical, Video, FileText, Link as LinkIcon, Type } from 'lucide-react';
+import { ArrowLeft, Plus, Trash2, Save, GripVertical, Video, FileText, Link as LinkIcon, Type, Image } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
@@ -7,6 +7,7 @@ import { Textarea } from '../ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { toast } from 'sonner';
 import { coursesAPI } from '../../../services/api';
+import { lessonTypeHints, getYouTubeVideoId, isYouTubeUrl, isPdfUrl } from '../../../utils/media';
 
 interface Lesson {
   _id?: string;
@@ -36,6 +37,7 @@ export default function CourseBuilder({ course, onBack, onSave }: CourseBuilderP
   const [formData, setFormData] = useState({
     title: course?.title || '',
     description: course?.description || '',
+    thumbnail: course?.thumbnail || '',
     category: course?.category || '',
     level: course?.level || 'Beginner',
     status: course?.status || 'Draft',
@@ -183,6 +185,31 @@ export default function CourseBuilder({ course, onBack, onSave }: CourseBuilderP
             placeholder="Enter course description"
             className="bg-white/10 border-white/20 text-white min-h-[100px]"
           />
+        </div>
+
+        <div>
+          <Label className="text-white mb-2 block">Course Thumbnail URL</Label>
+          <div className="flex gap-3">
+            <Input
+              value={formData.thumbnail}
+              onChange={(e) => setFormData({ ...formData, thumbnail: e.target.value })}
+              placeholder="https://example.com/image.jpg"
+              className="bg-white/10 border-white/20 text-white flex-1"
+            />
+            {formData.thumbnail && (
+              <div className="w-20 h-20 bg-white/10 rounded-lg overflow-hidden flex-shrink-0 border border-white/20">
+                <img 
+                  src={formData.thumbnail} 
+                  alt="Course thumbnail" 
+                  className="w-full h-full object-cover"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).style.display = 'none';
+                  }}
+                />
+              </div>
+            )}
+          </div>
+          <p className="text-indigo-400 text-xs mt-1">Enter an image URL for the course thumbnail (PNG, JPG, etc.)</p>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -357,13 +384,28 @@ export default function CourseBuilder({ course, onBack, onSave }: CourseBuilderP
                                   placeholder="Duration (minutes)"
                                   className="bg-white/10 border-white/20 text-white text-sm h-8"
                                 />
-                                <Input
-                                  value={lesson.content}
-                                  onChange={(e) => updateLesson(moduleIndex, lessonIndex, 'content', e.target.value)}
-                                  placeholder={lesson.type === 'Video' ? 'Video URL' : lesson.type === 'PDF' ? 'PDF URL' : lesson.type === 'Link' ? 'External URL' : 'Text content'}
-                                  className="bg-white/10 border-white/20 text-white text-sm h-8"
-                                />
+                                <div className="relative">
+                                  <Input
+                                    value={lesson.content}
+                                    onChange={(e) => updateLesson(moduleIndex, lessonIndex, 'content', e.target.value)}
+                                    placeholder={lessonTypeHints[lesson.type]?.placeholder || 'Enter content URL or text'}
+                                    className="bg-white/10 border-white/20 text-white text-sm h-8 pr-20"
+                                  />
+                                  {lesson.type === 'Video' && lesson.content && (
+                                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-green-400">
+                                      {getYouTubeVideoId(lesson.content) ? '✓ Valid' : '✗ Invalid'}
+                                    </span>
+                                  )}
+                                </div>
                               </div>
+
+                              {/* Content type hint */}
+                              {lesson.content && lesson.type === 'Video' && !isYouTubeUrl(lesson.content) && (
+                                <p className="text-yellow-400 text-xs">Please enter a valid YouTube URL</p>
+                              )}
+                              {lesson.content && lesson.type === 'PDF' && !isPdfUrl(lesson.content) && (
+                                <p className="text-yellow-400 text-xs">URL must end with .pdf</p>
+                              )}
 
                               <Textarea
                                 value={lesson.description}

@@ -24,9 +24,10 @@ import UserManagement from './components/admin/UserManagement';
 import OrgSettings from './components/admin/OrgSettings';
 import Analytics from './components/admin/Analytics';
 import EnrollmentManagement from './components/enrollments/EnrollmentManagement';
+import Notifications from './components/notifications/Notifications';
 
 function AppContent() {
-  const { user, loading, isAuthenticated } = useAuth() as { user: any; loading: boolean; isAuthenticated: boolean };
+  const { user, loading, isAuthenticated, refreshUser } = useAuth() as { user: any; loading: boolean; isAuthenticated: boolean; refreshUser: () => Promise<void> };
   const [currentView, setCurrentView] = useState<string>('dashboard');
   const [selectedItem, setSelectedItem] = useState<any>(null);
   const [showForgotPassword, setShowForgotPassword] = useState(false);
@@ -59,8 +60,11 @@ function AppContent() {
 
   if (loading) {
     return (
-      <div className="size-full flex items-center justify-center bg-gradient-to-br from-slate-950 via-indigo-950 to-slate-900">
-        <div className="text-white text-xl">Loading...</div>
+      <div className="h-screen w-screen flex items-center justify-center bg-gradient-to-br from-slate-950 via-indigo-950 to-slate-900">
+        <div className="text-center space-y-4">
+          <div className="w-16 h-16 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
+          <p className="text-indigo-300 text-lg">Loading...</p>
+        </div>
       </div>
     );
   }
@@ -88,7 +92,21 @@ function AppContent() {
         if (user?.role === 'Super Admin' || user?.role === 'Admin' || user?.role === 'HR') {
           return <AdminDashboard onNavigate={setCurrentView} />;
         } else if (user?.role === 'Trainer') {
-          return <TrainerDashboard onNavigate={setCurrentView} />;
+          return <TrainerDashboard 
+            onNavigate={setCurrentView}
+            onEditCourse={(course: any) => {
+              setSelectedItem(course);
+              setCurrentView('course-builder');
+            }}
+            onEditAssessment={(assessment: any) => {
+              setSelectedItem(assessment);
+              setCurrentView('assessment-builder');
+            }}
+            onEditArticle={(article: any) => {
+              setSelectedItem(article);
+              setCurrentView('article-editor');
+            }}
+          />;
         } else {
           return <LearnerDashboard 
             onNavigate={setCurrentView} 
@@ -113,6 +131,7 @@ function AppContent() {
             setSelectedItem(null);
             setCurrentView('course-builder');
           }}
+          onRefreshUser={refreshUser}
         />;
       
       case 'course-viewer':
@@ -122,6 +141,10 @@ function AppContent() {
           onEdit={(course: any) => {
             setSelectedItem(course);
             setCurrentView('course-builder');
+          }}
+          onSelectAssessment={(assessment: any) => {
+            setSelectedItem(assessment);
+            setCurrentView('assessment-viewer');
           }}
         />;
       
@@ -204,6 +227,9 @@ function AppContent() {
       case 'enrollments':
         return <EnrollmentManagement />;
       
+      case 'notifications':
+        return <Notifications onNavigate={setCurrentView} />;
+      
       default:
         return <div className="text-white">View not found</div>;
     }
@@ -213,7 +239,7 @@ function AppContent() {
     <div className="h-screen w-screen flex overflow-hidden bg-gradient-to-br from-slate-950 via-indigo-950 to-slate-900">
       <Sidebar currentView={currentView} onNavigate={setCurrentView} />
       <div className="flex-1 flex flex-col overflow-hidden min-w-0">
-        <Header currentView={currentView} />
+        <Header currentView={currentView} onNavigate={setCurrentView} />
         <main className="flex-1 overflow-auto p-6">
           {renderContent()}
         </main>
@@ -231,4 +257,3 @@ export default function App() {
     </AuthProvider>
   );
 }
-

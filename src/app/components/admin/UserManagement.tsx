@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { usersAPI, ROLE_OPTIONS } from '../../../services/api';
 import { useAuth } from '../../../contexts/AuthContext';
 import { usePermission } from '../../../hooks/usePermission';
-import { Users, Plus, Search, Edit, Trash2, X, Shield, Info } from 'lucide-react';
+import { Users, Plus, Search, Edit, Trash2, X, Shield, Info, Eye, EyeOff } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
@@ -74,6 +74,7 @@ export default function UserManagement() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
+  const [showPassword, setShowPassword] = useState(false);
   const [formData, setFormData] = useState<FormData>({
     name: '',
     email: '',
@@ -233,7 +234,50 @@ export default function UserManagement() {
   };
 
   if (loading) {
-    return <div className="text-white">Loading users...</div>;
+    return (
+      <div className="space-y-6 p-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <div className="h-8 w-40 bg-white/10 rounded animate-pulse mb-1" />
+            <div className="h-4 w-56 bg-white/10 rounded animate-pulse" />
+          </div>
+          <div className="h-10 w-24 bg-white/10 rounded animate-pulse" />
+        </div>
+        <div className="h-10 w-full bg-white/10 rounded animate-pulse" />
+        <div className="flex flex-wrap gap-2">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <div key={i} className="h-5 w-16 bg-white/10 rounded animate-pulse" />
+          ))}
+        </div>
+        <div className="bg-white/10 backdrop-blur-xl rounded-2xl border border-white/20 overflow-hidden">
+          <div className="p-4">
+            <div className="space-y-3">
+              <div className="flex gap-4 pb-3 border-b border-white/10">
+                <div className="h-4 w-24 bg-white/10 rounded animate-pulse" />
+                <div className="h-4 w-32 bg-white/10 rounded animate-pulse" />
+                <div className="h-4 w-20 bg-white/10 rounded animate-pulse" />
+                <div className="h-4 w-16 bg-white/10 rounded animate-pulse" />
+                <div className="h-4 w-24 bg-white/10 rounded animate-pulse" />
+                <div className="h-4 w-20 ml-auto bg-white/10 rounded animate-pulse" />
+              </div>
+              {Array.from({ length: 8 }).map((_, i) => (
+                <div key={i} className="flex gap-4 py-2">
+                  <div className="h-6 w-32 bg-white/10 rounded animate-pulse" />
+                  <div className="h-6 w-40 bg-white/10 rounded animate-pulse" />
+                  <div className="h-6 w-20 bg-white/10 rounded animate-pulse" />
+                  <div className="h-6 w-16 bg-white/10 rounded animate-pulse" />
+                  <div className="h-6 w-16 bg-white/10 rounded animate-pulse" />
+                  <div className="flex gap-2 ml-auto">
+                    <div className="h-8 w-8 bg-white/10 rounded animate-pulse" />
+                    <div className="h-8 w-8 bg-white/10 rounded animate-pulse" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -376,16 +420,25 @@ export default function UserManagement() {
               <Label htmlFor="password" className="text-indigo-300">
                 Password {editingUser && '(leave blank to keep current)'}
               </Label>
-              <Input
-                id="password"
-                name="password"
-                type="password"
-                value={formData.password}
-                onChange={handleInputChange}
-                placeholder={editingUser ? 'Enter new password (optional)' : 'Enter password'}
-                minLength={editingUser ? 0 : 6}
-                className="bg-white/10 border-white/20 text-white placeholder:text-indigo-400"
-              />
+              <div className="relative">
+                <Input
+                  id="password"
+                  name="password"
+                  type={showPassword ? 'text' : 'password'}
+                  value={formData.password}
+                  onChange={handleInputChange}
+                  placeholder={editingUser ? 'Enter new password (optional)' : 'Enter password'}
+                  minLength={editingUser ? 0 : 6}
+                  className="bg-white/10 border-white/20 text-white placeholder:text-indigo-400 pr-11"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-indigo-300 hover:text-white transition-colors"
+                >
+                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">

@@ -94,8 +94,8 @@ export default function EnrollmentManagement() {
   // Dialogs
   const [isBulkEnrollOpen, setIsBulkEnrollOpen] = useState(false);
 
-  // Check permissions
-  const canManageEnrollments = isAuthenticated && can('users:write');
+  // Check permissions - Admin/HR have enrollments:create, Super Admin has users:write
+  const canManageEnrollments = isAuthenticated && (can('enrollments:create') || can('users:write'));
 
   useEffect(() => {
     fetchEnrollments();
@@ -414,4 +414,3 @@ export default function EnrollmentManagement() {
     </div>
   );
 }
-

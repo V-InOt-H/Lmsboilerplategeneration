@@ -142,10 +142,16 @@ export const coursesAPI = {
   }),
   delete: (id) => apiRequest(`/courses/${id}`, { method: 'DELETE' }),
   enroll: (id) => apiRequest(`/courses/${id}/enroll`, { method: 'POST' }),
+  unenroll: (id) => apiRequest(`/courses/${id}/unenroll`, { method: 'POST' }),
   updateProgress: (id, data) => apiRequest(`/courses/${id}/progress`, {
     method: 'PUT',
     body: JSON.stringify(data)
-  })
+  }),
+  completeLesson: (id, lessonId) => apiRequest(`/courses/${id}/complete-lesson`, {
+    method: 'POST',
+    body: JSON.stringify({ lessonId })
+  }),
+  completeCourse: (id) => apiRequest(`/courses/${id}/complete`, { method: 'POST' })
 };
 
 // Assessments API
@@ -155,6 +161,7 @@ export const assessmentsAPI = {
     return apiRequest(`/assessments?${params}`);
   },
   getOne: (id) => apiRequest(`/assessments/${id}`),
+  getWithCourse: (id) => apiRequest(`/assessments/${id}/with-course`),
   create: (data) => apiRequest('/assessments', {
     method: 'POST',
     body: JSON.stringify(data)
@@ -196,7 +203,58 @@ export const certificatesAPI = {
   generate: (courseId) => apiRequest('/certificates/generate', {
     method: 'POST',
     body: JSON.stringify({ courseId })
-  })
+  }),
+  download: async (id) => {
+    const token = getToken();
+    const response = await fetch(`${API_URL}/certificates/${id}/download`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    });
+    
+    if (!response.ok) {
+      if (response.status === 401 || response.status === 403) {
+        throw new Error('Not authorized to download this certificate');
+      }
+      throw new Error('Failed to download certificate');
+    }
+    
+    // Check if response is PDF or HTML
+    const contentType = response.headers.get('content-type');
+    const blob = await response.blob();
+    const url = window.URL.createObjectURL(blob);
+    
+    // Get filename from header
+    const contentDisposition = response.headers.get('content-disposition');
+    let filename = `certificate-${id}.pdf`;
+    if (contentDisposition) {
+      const match = contentDisposition.match(/filename="(.+)"/);
+      if (match) {
+        filename = match[1];
+      }
+    }
+    
+    // If HTML response (fallback when Chrome not installed), open in new tab
+    if (contentType && contentType.includes('text/html')) {
+      // Open HTML in new tab for printing
+      const htmlUrl = window.URL.createObjectURL(new Blob([await blob.text()], { type: 'text/html' }));
+      window.open(htmlUrl, '_blank');
+      window.URL.revokeObjectURL(url);
+      return { success: true, filename, type: 'html' };
+    }
+    
+    // For PDF, trigger download
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(url);
+    
+    return { success: true, filename, type: 'pdf' };
+  }
 };
 
 // Analytics API
@@ -205,7 +263,43 @@ export const analyticsAPI = {
   getLearner: () => apiRequest('/analytics/learner'),
   getCourse: (id) => apiRequest(`/analytics/course/${id}`),
   getEnrollmentTrends: (period = '6months') => apiRequest(`/analytics/enrollment-trends?period=${period}`),
-  export: (type) => apiRequest(`/analytics/export?type=${type}`)
+  export: async (type) => {
+    const token = getToken();
+    const response = await fetch(`${API_URL}/analytics/export?type=${type}`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    });
+    
+    if (!response.ok) {
+      // Handle specific error cases
+      if (response.status === 403) {
+        throw new Error('Permission denied. You need analytics:export permission to export reports.');
+      }
+      if (response.status === 401) {
+        throw new Error('Unauthorized. Please log in again.');
+      }
+      
+      // Try to get error message from response
+      try {
+        const errorData = await response.json();
+        throw new Error(errorData.message || `Export failed: ${response.statusText}`);
+      } catch (e) {
+        throw new Error(`Failed to export data: ${response.status} ${response.statusText}`);
+      }
+    }
+    
+    const blob = await response.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${type}-report-${new Date().toISOString().split('T')[0]}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(url);
+  }
 };
 
 // Settings API
@@ -220,6 +314,8 @@ export const settingsAPI = {
 // Notifications API
 export const notificationsAPI = {
   getAll: () => apiRequest('/notifications'),
+  getUnreadCount: () => apiRequest('/notifications/unread-count'),
   markAsRead: (id) => apiRequest(`/notifications/${id}/read`, { method: 'PUT' }),
+  markAllAsRead: () => apiRequest('/notifications/read-all', { method: 'PUT' }),
   delete: (id) => apiRequest(`/notifications/${id}`, { method: 'DELETE' })
 };

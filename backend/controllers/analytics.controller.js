@@ -119,7 +119,7 @@ exports.getDashboardAnalytics = async (req, res) => {
 exports.getLearnerAnalytics = async (req, res) => {
   try {
     const user = await User.findById(req.user.id)
-      .populate('enrolledCourses.course', 'title category duration');
+      .populate('enrolledCourses.course', 'title description thumbnail category level duration modules');
 
     const certificates = await Certificate.find({ user: req.user.id });
     const assessmentResults = await AssessmentResult.find({ user: req.user.id })
@@ -143,8 +143,14 @@ exports.getLearnerAnalytics = async (req, res) => {
       ? assessmentResults.reduce((sum, r) => sum + r.percentage, 0) / assessmentResults.length
       : 0;
 
-    // Get available assessments - show all (including Draft) for learners to see what's available
-    const availableAssessments = await Assessment.find()
+    // Get available assessments - only show assessments for courses the learner is enrolled in
+    // and has completed (or is eligible to take)
+    const enrolledCourseIds = validEnrolledCourses.map(e => e.course._id.toString());
+    
+    const availableAssessments = await Assessment.find({
+      course: { $in: enrolledCourseIds },
+      status: 'Published' // Only show published assessments
+    })
       .select('title description course questions duration passingScore status')
       .populate('course', 'title')
       .sort('-createdAt');

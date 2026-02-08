@@ -7,7 +7,8 @@ const {
   updateAssessment,
   deleteAssessment,
   submitAssessment,
-  getResults
+  getResults,
+  getAssessmentWithCourse
 } = require('../controllers/assessment.controller');
 const { protect, authorizeWithPermission, authorizeResource } = require('../middleware/auth.middleware');
 
@@ -19,11 +20,14 @@ router
   .get(authorizeWithPermission('assessments:read'), getAssessments)
   .post(authorizeWithPermission('assessments:create'), createAssessment);
 
+// Get single assessment with course completion status
+router.get('/:id/with-course', getAssessmentWithCourse);
+
 // Get single assessment - requires authentication
 router
   .route('/:id')
   .get(authorizeWithPermission('assessments:read'), getAssessment)
-  .put(authorizeResource('createdBy'), authorizeWithPermission('assessments:update'), updateAssessment)
+  .put(authorizeWithPermission('assessments:update'), updateAssessment)
   .delete(authorizeWithPermission('assessments:delete'), deleteAssessment);
 
 // Submit assessment - requires authentication (any authenticated user)

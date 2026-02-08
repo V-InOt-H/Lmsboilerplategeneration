@@ -22,8 +22,8 @@ router
 // Get single user - requires authentication (users can see their own profile)
 router
   .route('/:id')
-  .get(authorizeResource('userId'), getUser)
-  .put(authorizeResource('userId'), authorizeWithPermission('users:update'), updateUser)
+  .get(authorizeResource('id'), getUser)
+  .put(authorizeResource('id'), authorizeWithPermission('users:update'), updateUser)
   .delete(authorizeWithPermission('users:delete'), deleteUser);
 
 // Profile routes - for current user

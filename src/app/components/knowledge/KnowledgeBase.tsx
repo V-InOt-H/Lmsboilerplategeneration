@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { knowledgeAPI } from '../../../services/api';
 import { useAuth } from '../../../contexts/AuthContext';
-import { FileText, Plus, Search, Trash2 } from 'lucide-react';
+import { FileText, Plus, Search, Trash2, Edit } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { toast } from 'sonner';
@@ -19,15 +19,20 @@ import {
 type KnowledgeBaseProps = {
   onSelectArticle: (article: any) => void;
   onCreateArticle: () => void;
+  onEditArticle?: (article: any) => void;
 };
 
-export default function KnowledgeBase({ onSelectArticle, onCreateArticle }: KnowledgeBaseProps) {
+export default function KnowledgeBase({ onSelectArticle, onCreateArticle, onEditArticle }: KnowledgeBaseProps) {
   const { hasRole } = useAuth();
   const [articles, setArticles] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [articleToDelete, setArticleToDelete] = useState<any>(null);
+
+  // Check for edit permissions (support both 'knowledge:update' and 'knowledge:write')
+  const canEditArticles = hasRole('Super Admin', 'Admin', 'Trainer') || hasRole('HR');
+  const canDeleteArticles = hasRole('Super Admin', 'Admin', 'Trainer') || hasRole('HR');
 
   useEffect(() => {
     fetchArticles();
@@ -72,7 +77,35 @@ export default function KnowledgeBase({ onSelectArticle, onCreateArticle }: Know
   );
 
   if (loading) {
-    return <div className="text-white">Loading knowledge base...</div>;
+    return (
+      <div className="space-y-6 p-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <div className="h-8 w-40 bg-white/10 rounded animate-pulse mb-1" />
+            <div className="h-4 w-56 bg-white/10 rounded animate-pulse" />
+          </div>
+          <div className="h-10 w-24 bg-white/10 rounded animate-pulse" />
+        </div>
+        <div className="h-10 w-full bg-white/10 rounded animate-pulse" />
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <div key={i} className="bg-white/10 backdrop-blur-xl rounded-2xl border border-white/20 p-6">
+              <div className="flex items-start justify-between mb-3">
+                <div className="w-8 h-8 bg-white/10 rounded animate-pulse" />
+                <div className="h-6 w-12 bg-white/10 rounded animate-pulse" />
+              </div>
+              <div className="h-6 w-3/4 bg-white/10 rounded animate-pulse mb-2" />
+              <div className="h-4 w-full bg-white/10 rounded animate-pulse mb-1" />
+              <div className="h-4 w-2/3 bg-white/10 rounded animate-pulse mb-4" />
+              <div className="flex items-center justify-between">
+                <div className="h-3 w-16 bg-white/10 rounded animate-pulse" />
+                <div className="h-3 w-12 bg-white/10 rounded animate-pulse" />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -123,14 +156,29 @@ export default function KnowledgeBase({ onSelectArticle, onCreateArticle }: Know
                     </span>
                   )}
                   {hasRole('Super Admin', 'Admin', 'Trainer') && (
-                    <Button
-                      variant="destructive"
-                      size="icon"
-                      className="bg-red-500/20 hover:bg-red-500/30 text-red-300 border border-red-500/30 opacity-0 group-hover:opacity-100 transition-opacity"
-                      onClick={(e) => handleDeleteClick(e, article)}
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
+                    <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                      {onEditArticle && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="text-indigo-400 hover:text-indigo-300 hover:bg-indigo-500/10"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onEditArticle(article);
+                          }}
+                        >
+                          <Edit className="w-4 h-4" />
+                        </Button>
+                      )}
+                      <Button
+                        variant="destructive"
+                        size="icon"
+                        className="bg-red-500/20 hover:bg-red-500/30 text-red-300 border border-red-500/30"
+                        onClick={(e) => handleDeleteClick(e, article)}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    </div>
                   )}
                 </div>
               </div>
