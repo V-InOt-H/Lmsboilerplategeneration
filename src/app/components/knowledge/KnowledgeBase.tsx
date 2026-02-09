@@ -50,6 +50,22 @@ export default function KnowledgeBase({ onSelectArticle, onCreateArticle, onEdit
     }
   };
 
+  const handleArticleClick = async (article: any) => {
+    try {
+      // Fetch the article to increment view count
+      const response = await knowledgeAPI.getOne(article._id);
+      if (response.article) {
+        onSelectArticle(response.article);
+      } else {
+        onSelectArticle(article);
+      }
+    } catch (err) {
+      console.error('Failed to fetch article:', err);
+      // Fallback to using the article from the list if API fails
+      onSelectArticle(article);
+    }
+  };
+
   const handleDeleteClick = (e: React.MouseEvent, article: any) => {
     e.stopPropagation();
     setArticleToDelete(article);
@@ -144,7 +160,7 @@ export default function KnowledgeBase({ onSelectArticle, onCreateArticle, onEdit
           {filteredArticles.map((article) => (
             <div
               key={article._id}
-              onClick={() => onSelectArticle(article)}
+              onClick={() => handleArticleClick(article)}
               className="bg-white/10 backdrop-blur-xl rounded-2xl border border-white/20 p-6 hover:border-indigo-500/50 transition-all cursor-pointer group"
             >
               <div className="flex items-start justify-between mb-3">

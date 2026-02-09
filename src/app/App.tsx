@@ -106,6 +106,10 @@ function AppContent() {
               setSelectedItem(article);
               setCurrentView('article-editor');
             }}
+            onCreateCourse={() => {
+              setSelectedItem(null);
+              setCurrentView('course-builder');
+            }}
           />;
         } else {
           return <LearnerDashboard 

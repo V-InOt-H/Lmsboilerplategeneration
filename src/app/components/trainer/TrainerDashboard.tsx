@@ -56,9 +56,10 @@ interface TrainerDashboardProps {
   onEditCourse?: (course: Course) => void;
   onEditAssessment?: (assessment: any) => void;
   onEditArticle?: (article: any) => void;
+  onCreateCourse?: () => void;
 }
 
-export default function TrainerDashboard({ onNavigate, onEditCourse }: TrainerDashboardProps) {
+export default function TrainerDashboard({ onNavigate, onEditCourse, onCreateCourse }: TrainerDashboardProps) {
   const [analytics, setAnalytics] = useState<AnalyticsData | null>(null);
   const [courses, setCourses] = useState<Course[]>([]);
   const [loading, setLoading] = useState(true);
@@ -236,7 +237,7 @@ export default function TrainerDashboard({ onNavigate, onEditCourse }: TrainerDa
         <h3 className="text-xl font-bold text-white mb-4">Quick Actions</h3>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <Button
-            onClick={() => onNavigate('courses')}
+            onClick={() => onCreateCourse ? onCreateCourse() : onNavigate('courses')}
             className="bg-purple-500/20 hover:bg-purple-500/30 text-purple-300 border border-purple-500/30 py-6"
           >
             <BookOpen className="w-5 h-5 mr-2" />
