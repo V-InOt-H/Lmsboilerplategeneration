@@ -411,10 +411,13 @@ exports.submitAssessment = async (req, res) => {
       });
     }
 
+    // Variable to store enrollment for later use
+    let enrollment = null;
+
     // Check if user is enrolled in the course (if assessment is course-specific)
     if (assessment.course) {
       const user = await User.findById(req.user.id);
-      const enrollment = user.enrolledCourses.find(
+      enrollment = user.enrolledCourses.find(
         e => e.course.toString() === assessment.course.toString()
       );
       
@@ -513,16 +516,26 @@ exports.submitAssessment = async (req, res) => {
       timeTaken
     });
 
-    // If passed, generate certificate
+    // STRICT RULE: Certificate can ONLY be generated if:
+    // 1. Assessment is passed with 90%+
+    // 2. Course progress is 90%+
+    // 3. Certificate doesn't already exist
     let certificate = null;
-    if (passed && assessment.course) {
+    let certificateMessage = null;
+    
+    if (passed && assessment.course && enrollment) {
+      const courseProgress = enrollment.progress || 0;
+      const hasRequiredCourseProgress = courseProgress >= 90;
+      const hasRequiredAssessmentScore = percentage >= 90;
+      
       // Check if certificate already exists
       const existingCert = await Certificate.findOne({
         user: req.user.id,
         course: assessment.course
       });
 
-      if (!existingCert) {
+      // Only generate certificate if BOTH course progress AND assessment score are 90%+
+      if (!existingCert && hasRequiredCourseProgress && hasRequiredAssessmentScore) {
         // Generate unique certificate number
         const certCount = await Certificate.countDocuments();
         const certificateNumber = `CERT-${Date.now().toString(36).toUpperCase()}-${(certCount + 1).toString().padStart(4, '0')}`;
@@ -530,6 +543,7 @@ exports.submitAssessment = async (req, res) => {
         certificate = await Certificate.create({
           user: req.user.id,
           course: assessment.course,
+          assessment: assessment._id,
           certificateNumber,
           issuedDate: new Date(),
           completionDate: new Date(),
@@ -541,23 +555,37 @@ exports.submitAssessment = async (req, res) => {
           user: req.user.id,
           type: 'Certificate',
           title: 'Certificate Earned!',
-          message: `Congratulations! You have earned a certificate for completing ${assessment.title}`,
+          message: `Congratulations! You have earned a certificate for completing ${assessment.title} with ${percentage.toFixed(0)}%`,
           link: `/certificates/${certificate._id}`
         });
+        
+        certificateMessage = 'Congratulations! You have earned your certificate by completing both the course and assessment with 90% or higher.';
+      } else if (!existingCert && !hasRequiredCourseProgress) {
+        // Assessment passed but course not complete enough
+        certificateMessage = `You passed the assessment with ${percentage.toFixed(0)}%! Complete the course to ${Math.max(90 - courseProgress, 0)}% more to earn your certificate.`;
+      } else if (!existingCert && !hasRequiredAssessmentScore) {
+        // Assessment passed but score not high enough
+        certificateMessage = `You passed the assessment with ${percentage.toFixed(0)}%. You need 90% or higher to earn a certificate. Retake to improve your score.`;
       }
     }
 
     // Create assessment result notification
+    const notificationMessage = certificate 
+      ? `You scored ${percentage.toFixed(0)}% on ${assessment.title}. ${certificateMessage}`
+      : `You scored ${percentage.toFixed(0)}% on ${assessment.title}. ${passed ? (certificateMessage || 'Great job!') : 'Keep learning and try again.'}`;
+    
     await Notification.create({
       user: req.user.id,
       type: passed ? 'Assessment' : 'Assessment',
       title: passed ? 'Assessment Passed!' : 'Assessment Completed',
-      message: `You scored ${percentage.toFixed(0)}% on ${assessment.title}. ${passed ? 'You have earned a certificate!' : 'Keep learning and try again.'}`,
+      message: notificationMessage,
       link: `/assessments/${assessment._id}/results/${result._id}`,
       metadata: {
         assessment: assessment._id,
         passed,
-        certificateId: certificate?._id
+        certificateId: certificate?._id,
+        courseProgress: enrollment?.progress || 0,
+        certificateMessage: certificateMessage
       }
     });
 
@@ -569,7 +597,10 @@ exports.submitAssessment = async (req, res) => {
         percentage,
         passed,
         attemptNumber: previousAttempts + 1,
-        certificateId: certificate?._id
+        certificateId: certificate?._id,
+        certificateMessage: certificateMessage,
+        courseProgressRequired: 90,
+        currentCourseProgress: enrollment?.progress || 0
       }
     });
   } catch (error) {
@@ -589,6 +620,30 @@ exports.getResults = async (req, res) => {
       assessment: req.params.id,
       user: req.user.id
     }).sort('-createdAt');
+
+    res.status(200).json({
+      success: true,
+      count: results.length,
+      results
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+};
+
+// @desc    Get current user's all assessment results
+// @route   GET /api/assessments/my-results
+// @access  Private
+exports.getMyResults = async (req, res) => {
+  try {
+    const results = await AssessmentResult.find({
+      user: req.user.id
+    })
+    .populate('assessment', 'title course')
+    .sort('-createdAt');
 
     res.status(200).json({
       success: true,

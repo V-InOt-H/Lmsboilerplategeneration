@@ -1,6 +1,7 @@
 const Certificate = require('../models/Certificate.model');
 const User = require('../models/User.model');
 const Course = require('../models/Course.model');
+const { AssessmentResult } = require('../models/Assessment.model');
 const puppeteer = require('puppeteer-core');
 
 // Professional certificate HTML template - Figma Design
@@ -543,6 +544,32 @@ exports.getCertificate = async (req, res) => {
   }
 };
 
+// Helper function to check if user has passed assessment for a course
+const hasPassedAssessment = async (userId, courseId) => {
+  // Find assessment for this course
+  const { Assessment } = require('../models/Assessment.model');
+  const assessment = await Assessment.findOne({ course: courseId });
+  
+  if (!assessment) {
+    return { hasAssessment: false, passed: false, percentage: 0, assessmentId: null };
+  }
+  
+  // Check if user has passed this assessment
+  const result = await AssessmentResult.findOne({
+    assessment: assessment._id,
+    user: userId,
+    passed: true
+  });
+  
+  return {
+    hasAssessment: true,
+    passed: !!result,
+    percentage: result ? result.percentage : 0,
+    assessmentId: assessment._id,
+    assessmentTitle: assessment.title
+  };
+};
+
 // @desc    Generate certificate
 // @route   POST /api/certificates/generate
 // @access  Private
@@ -560,15 +587,64 @@ exports.generateCertificate = async (req, res) => {
       });
     }
 
-    // Check if user completed the course (100% progress)
+    // Check if user completed the course (90%+ progress)
     const enrollment = user.enrolledCourses.find(
-      e => e.course.toString() === courseId && e.status === 'Completed'
+      e => e.course.toString() === courseId
     );
 
     if (!enrollment) {
       return res.status(400).json({
         success: false,
-        message: 'Course not completed. Complete 100% to get certificate.'
+        message: 'You are not enrolled in this course.'
+      });
+    }
+
+    const courseProgress = enrollment.progress || 0;
+    
+    // Check if course progress is at least 90%
+    if (courseProgress < 90) {
+      return res.status(400).json({
+        success: false,
+        message: `Course progress must be at least 90% to get certificate. Current progress: ${courseProgress}%`
+      });
+    }
+
+    // Check if user has passed the assessment (90%+)
+    const assessmentStatus = await hasPassedAssessment(req.user.id, courseId);
+    
+    // STRICT RULE: Certificate can ONLY be generated after passing assessment
+    // If no assessment is mapped to this course, reject certificate generation
+    if (!assessmentStatus.hasAssessment) {
+      return res.status(400).json({
+        success: false,
+        message: 'This course requires a completed assessment to earn a certificate. Please complete the assessment first.',
+        courseProgress: courseProgress,
+        assessmentRequired: true,
+        assessmentPassed: false,
+        assessmentExists: false
+      });
+    }
+    
+    if (!assessmentStatus.passed) {
+      return res.status(400).json({
+        success: false,
+        message: 'You must pass the course assessment with at least 90% to get a certificate.',
+        courseProgress: courseProgress,
+        assessmentRequired: true,
+        assessmentPassed: false,
+        assessmentExists: true
+      });
+    }
+
+    if (assessmentStatus.percentage < 90) {
+      return res.status(400).json({
+        success: false,
+        message: `Assessment score must be at least 90% to get certificate. Your score: ${assessmentStatus.percentage.toFixed(0)}%`,
+        courseProgress: courseProgress,
+        assessmentRequired: true,
+        assessmentPassed: true,
+        assessmentPercentage: assessmentStatus.percentage,
+        assessmentExists: true
       });
     }
 
@@ -590,8 +666,9 @@ exports.generateCertificate = async (req, res) => {
     const certificate = await Certificate.create({
       user: user._id,
       course: course._id,
+      assessment: assessmentStatus.hasAssessment ? assessmentStatus.assessmentId : null,
       completionDate: Date.now(),
-      finalScore: enrollment.progress,
+      finalScore: assessmentStatus.hasAssessment ? assessmentStatus.percentage : courseProgress,
       issuedDate: Date.now()
     });
 
@@ -602,7 +679,8 @@ exports.generateCertificate = async (req, res) => {
 
     res.status(201).json({
       success: true,
-      certificate
+      certificate,
+      message: 'Congratulations! You have earned your certificate by completing both the course and assessment with 90% or higher.'
     });
   } catch (error) {
     res.status(500).json({

@@ -90,6 +90,11 @@ const courseSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User'
   }],
+  assessment: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Assessment',
+    default: null
+  },
   tags: [String],
   prerequisites: [String],
   learningObjectives: [String]

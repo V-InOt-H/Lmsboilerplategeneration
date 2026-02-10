@@ -11,6 +11,11 @@ const certificateSchema = new mongoose.Schema({
     ref: 'Course',
     required: true
   },
+  assessment: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Assessment',
+    required: false
+  },
   certificateNumber: {
     type: String,
     unique: true

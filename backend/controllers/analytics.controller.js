@@ -145,7 +145,9 @@ exports.getLearnerAnalytics = async (req, res) => {
 
     // Get available assessments - only show assessments for courses the learner is enrolled in
     // and has completed (or is eligible to take)
-    const enrolledCourseIds = validEnrolledCourses.map(e => e.course._id.toString());
+    const enrolledCourseIds = validEnrolledCourses
+      .filter(e => e.course && e.course._id)
+      .map(e => e.course._id.toString());
     
     const availableAssessments = await Assessment.find({
       course: { $in: enrolledCourseIds },
@@ -158,7 +160,9 @@ exports.getLearnerAnalytics = async (req, res) => {
     // Get user's assessment results by assessment ID for quick lookup
     const userResultsMap = {};
     assessmentResults.forEach(result => {
-      userResultsMap[result.assessment.toString()] = result;
+      if (result.assessment) {
+        userResultsMap[result.assessment.toString()] = result;
+      }
     });
 
     // Map assessments with user's results

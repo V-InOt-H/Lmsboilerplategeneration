@@ -1,4 +1,5 @@
 const Settings = require('../models/Settings.model');
+const { auditActions } = require('../utils/audit');
 
 // @desc    Get settings
 // @route   GET /api/settings
@@ -28,6 +29,10 @@ exports.getSettings = async (req, res) => {
 // @access  Private/Admin
 exports.updateSettings = async (req, res) => {
   try {
+    // Get previous settings for audit log
+    let previousSettings = await Settings.findOne();
+    const previousState = previousSettings ? previousSettings.toObject() : {};
+
     let settings = await Settings.findOne();
 
     if (!settings) {
@@ -35,6 +40,11 @@ exports.updateSettings = async (req, res) => {
     } else {
       Object.assign(settings, req.body);
       await settings.save();
+    }
+
+    // Log the settings update
+    if (req.audit && auditActions.updateSettings) {
+      auditActions.updateSettings(req, previousState, settings.toObject());
     }
 
     res.status(200).json({

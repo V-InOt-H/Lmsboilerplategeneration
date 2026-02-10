@@ -44,7 +44,8 @@ exports.getCourses = async (req, res) => {
 exports.getCourse = async (req, res) => {
   try {
     const course = await Course.findById(req.params.id)
-      .populate('createdBy', 'name email avatar');
+      .populate('createdBy', 'name email avatar')
+      .populate('assessment');
 
     if (!course) {
       return res.status(404).json({
@@ -62,9 +63,12 @@ exports.getCourse = async (req, res) => {
       );
     }
 
-    // Get assessment for this course if exists
-    const { Assessment } = require('../models/Assessment.model');
-    const assessment = await Assessment.findOne({ course: course._id });
+    // Get assessment for this course if exists (from populated field or fallback query)
+    let assessment = course.assessment;
+    if (!assessment) {
+      const { Assessment } = require('../models/Assessment.model');
+      assessment = await Assessment.findOne({ course: course._id });
+    }
 
     res.status(200).json({
       success: true,

@@ -8,7 +8,8 @@ const {
   deleteAssessment,
   submitAssessment,
   getResults,
-  getAssessmentWithCourse
+  getAssessmentWithCourse,
+  getMyResults
 } = require('../controllers/assessment.controller');
 const { protect, authorizeWithPermission, authorizeResource } = require('../middleware/auth.middleware');
 
@@ -19,6 +20,9 @@ router
   .route('/')
   .get(authorizeWithPermission('assessments:read'), getAssessments)
   .post(authorizeWithPermission('assessments:create'), createAssessment);
+
+// Get current user's assessment results (must be before /:id routes)
+router.get('/my-results', getMyResults);
 
 // Get single assessment with course completion status
 router.get('/:id/with-course', getAssessmentWithCourse);
