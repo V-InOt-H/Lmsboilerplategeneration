@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '../ui/button';
 import { ArrowLeft, CheckCircle, Award, ExternalLink, Download } from 'lucide-react';
 import { assessmentsAPI, certificatesAPI } from '../../../services/api';
@@ -44,6 +44,15 @@ export default function AssessmentViewer({ assessment, onBack }: AssessmentViewe
   const [submitted, setSubmitted] = useState(false);
   const [result, setResult] = useState<AssessmentResult | null>(null);
   const [certificateId, setCertificateId] = useState<string | null>(null);
+
+  // Reset state when assessment changes (for retakes)
+  useEffect(() => {
+    setCurrentQuestion(0);
+    setAnswers({});
+    setSubmitted(false);
+    setResult(null);
+    setCertificateId(null);
+  }, [assessment?._id]);
 
   // Handle view certificate
   const handleViewCertificate = () => {

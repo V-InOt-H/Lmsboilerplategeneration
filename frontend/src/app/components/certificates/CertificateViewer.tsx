@@ -1,9 +1,9 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, Download, Printer, Loader2 } from 'lucide-react';
 import { Button } from '../ui/button';
 import { toast } from 'sonner';
-import { certificatesAPI, coursesAPI } from '../../../services/api';
+import { certificatesAPI, coursesAPI, settingsAPI } from '../../../services/api';
 import { useAuth } from '../../../contexts/AuthContext';
 import Certificate from './Certificate';
 
@@ -33,12 +33,33 @@ export default function CertificateViewer() {
   
   const [certificate, setCertificate] = useState<CertificateData | null>(null);
   const [course, setCourse] = useState<any>(null);
+  const [organizationLogo, setOrganizationLogo] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [downloading, setDownloading] = useState(false);
 
   useEffect(() => {
     fetchCertificate();
+    fetchOrganizationSettings();
   }, [certificateId]);
+
+  const fetchOrganizationSettings = async () => {
+    try {
+      console.log('Fetching organization settings for certificate...');
+      const response = await settingsAPI.get();
+      console.log('Settings response:', response);
+      
+      if (response.settings?.organization?.logo) {
+        console.log('Organization logo found:', response.settings.organization.logo.substring(0, 50) + '...');
+        setOrganizationLogo(response.settings.organization.logo);
+      } else {
+        console.log('No organization logo found in settings');
+        console.log('Organization data:', response.settings?.organization);
+      }
+    } catch (err) {
+      console.error('Failed to fetch organization settings:', err);
+      toast.error('Failed to load organization logo');
+    }
+  };
 
   // Auto-download if ?download=true is in URL
   useEffect(() => {
@@ -151,7 +172,17 @@ export default function CertificateViewer() {
           Back
         </Button>
         
-        <div className="flex gap-3">
+        <div className="flex items-center gap-3">
+          {organizationLogo && (
+            <div className="flex items-center gap-2 mr-4 px-3 py-2 bg-white/10 rounded-lg border border-white/20">
+              <span className="text-indigo-300 text-sm">Logo:</span>
+              <img 
+                src={organizationLogo} 
+                alt="Org Logo" 
+                className="w-8 h-8 object-contain rounded"
+              />
+            </div>
+          )}
           <Button 
             onClick={handlePrint}
             variant="outline"
@@ -198,6 +229,7 @@ export default function CertificateViewer() {
           certificateId={certificate.certificateNumber}
           authorityName={authorityName}
           authorityTitle={authorityTitle}
+          organizationLogo={organizationLogo}
         />
       </div>
     </div>

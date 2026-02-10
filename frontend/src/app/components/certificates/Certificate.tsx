@@ -1,4 +1,4 @@
-import React, { forwardRef } from 'react';
+import { forwardRef } from 'react';
 import { Award, BadgeCheck } from 'lucide-react';
 
 interface CertificateProps {
@@ -8,10 +8,11 @@ interface CertificateProps {
   certificateId: string;
   authorityName: string;
   authorityTitle: string;
+  organizationLogo?: string | null;
 }
 
 const Certificate = forwardRef<HTMLDivElement, CertificateProps>(
-  ({ learnerName, courseName, completionDate, certificateId, authorityName, authorityTitle }, ref) => {
+  ({ learnerName, courseName, completionDate, certificateId, authorityName, authorityTitle, organizationLogo }, ref) => {
     return (
       <div 
         ref={ref}
@@ -27,15 +28,28 @@ const Certificate = forwardRef<HTMLDivElement, CertificateProps>(
         {/* Decorative Inner Border */}
         <div className="absolute inset-8 border-2 border-slate-200"></div>
 
+        {/* Organization Logo - Top Right */}
+        {organizationLogo && (
+          <div className="absolute top-12 right-12 w-20 h-20 rounded-lg overflow-hidden bg-white shadow-lg border-2 border-slate-200 z-20">
+            <img 
+              src={organizationLogo} 
+              alt="Organization Logo" 
+              className="w-full h-full object-contain p-1"
+            />
+          </div>
+        )}
+
         {/* Main Content */}
         <div className="relative z-10 flex flex-col items-center justify-between h-full px-24 py-16">
           
           {/* Header Section */}
           <div className="flex flex-col items-center space-y-6">
-            {/* Logo Placeholder */}
-            <div className="flex items-center justify-center w-24 h-24 rounded-full bg-gradient-to-br from-[#1e3a5f] to-[#2c5f8d] shadow-lg">
-              <Award className="w-12 h-12 text-white" />
-            </div>
+            {/* Default Logo Placeholder (only shown when no organization logo) */}
+            {!organizationLogo && (
+              <div className="flex items-center justify-center w-24 h-24 rounded-full bg-gradient-to-br from-[#1e3a5f] to-[#2c5f8d] shadow-lg">
+                <Award className="w-12 h-12 text-white" />
+              </div>
+            )}
 
             {/* Decorative Line */}
             <div className="flex items-center gap-3">
@@ -147,4 +161,3 @@ const Certificate = forwardRef<HTMLDivElement, CertificateProps>(
 Certificate.displayName = 'Certificate';
 
 export default Certificate;
-

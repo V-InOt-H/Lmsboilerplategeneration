@@ -5,7 +5,7 @@ import { Button } from '../ui/button';
 import { Progress } from '../ui/progress';
 import { toast } from 'sonner';
 import { coursesAPI, certificatesAPI } from '../../../services/api';
-import { getYouTubeEmbedUrl, getPdfEmbedUrl, isYouTubeUrl, getYouTubeVideoId } from '../../../utils/media';
+import { getYouTubeEmbedUrl, getPdfEmbedUrl, isYouTubeUrl, getYouTubeVideoId, supportsInlinePdf } from '../../../utils/media';
 
 
 interface Course {
@@ -430,11 +430,14 @@ export default function CourseViewer({ course: initialCourse, onBack, onEdit, on
   const handleEnroll = async () => {
     if (!course?._id) return;
     
+    // Optimistic update - show enrolled state immediately
+    setIsEnrolled(true);
+    toast.success('Enrolling...');
+    
     try {
       await coursesAPI.enroll(course._id);
       toast.success('Successfully enrolled in course!');
       await refreshUser();
-      setIsEnrolled(true);
       setProgress(0);
       setCompletedLessons(new Set());
       if (course.modules?.[0]?.lessons?.[0]) {
@@ -442,6 +445,8 @@ export default function CourseViewer({ course: initialCourse, onBack, onEdit, on
         setSelectedLesson(firstLesson);
       }
     } catch (err: unknown) {
+      // Revert on error
+      setIsEnrolled(false);
       toast.error((err as Error).message || 'Failed to enroll');
     }
   };
@@ -449,44 +454,48 @@ export default function CourseViewer({ course: initialCourse, onBack, onEdit, on
   const handleUnenroll = async () => {
     if (!course?._id) return;
     
+    // Optimistic update - show unenrolled state immediately
+    const wasEnrolled = isEnrolled;
+    setIsEnrolled(false);
+    setSelectedLesson(null);
+    toast.success('Unenrolling...');
+    
     try {
       await coursesAPI.unenroll(course._id);
       toast.success('Successfully unenrolled from course');
       await refreshUser();
-      setIsEnrolled(false);
       setProgress(0);
       setCompletedLessons(new Set());
-      setSelectedLesson(null);
       setCertificate(null);
     } catch (err: unknown) {
+      // Revert on error
+      setIsEnrolled(wasEnrolled);
       toast.error((err as Error).message || 'Failed to unenroll');
-    }
-  };
-
-  const handleContinue = () => {
-    const firstUnlocked = getFirstUnlockedLesson();
-    if (firstUnlocked) {
-      setSelectedLesson(firstUnlocked.lesson);
-    } else if (course?.modules?.[0]?.lessons?.[0]) {
-      setSelectedLesson(course.modules[0].lessons[0]);
     }
   };
 
   const handleCompleteLesson = async (lessonId: string) => {
     if (!course?._id) return;
     
+    // Optimistic update - show completion immediately
+    const newCompletedLessons = new Set([...completedLessons, lessonId]);
+    setCompletedLessons(newCompletedLessons);
+    
+    const totalLessons = course.modules?.reduce((acc, mod) => acc + (mod.lessons?.length || 0), 0) || 1;
+    const completedCount = newCompletedLessons.size;
+    const newProgress = Math.round((completedCount / totalLessons) * 100);
+    setProgress(newProgress);
+    
+    // Show immediate feedback
+    toast.success('Lesson marked as complete!');
+    
     try {
       const response = await coursesAPI.completeLesson(course._id, lessonId);
-      toast.success('Lesson marked as complete!');
       
-      const newCompletedLessons = new Set([...completedLessons, lessonId]);
-      setCompletedLessons(newCompletedLessons);
-      
-      const totalLessons = course.modules?.reduce((acc, mod) => acc + (mod.lessons?.length || 0), 0) || 1;
-      const completedCount = newCompletedLessons.size;
-      const newProgress = response?.progress || Math.round((completedCount / totalLessons) * 100);
-      
-      setProgress(newProgress);
+      // Update with server response if different
+      if (response?.progress && response.progress !== newProgress) {
+        setProgress(response.progress);
+      }
       
       const courseIsComplete = response?.isCourseComplete || newProgress >= 100 || completedCount >= totalLessons;
       if (courseIsComplete) {
@@ -513,6 +522,13 @@ export default function CourseViewer({ course: initialCourse, onBack, onEdit, on
         await refreshUser();
       }
     } catch (err: unknown) {
+      // Revert optimistic update on error
+      setCompletedLessons(prev => {
+        const reverted = new Set(prev);
+        reverted.delete(lessonId);
+        return reverted;
+      });
+      setProgress(Math.round((completedLessons.size / totalLessons) * 100));
       toast.error((err as Error).message || 'Failed to complete lesson');
     }
   };
@@ -614,31 +630,63 @@ export default function CourseViewer({ course: initialCourse, onBack, onEdit, on
         );
 
       case 'PDF':
+        const pdfUrl = lesson.content;
+        const canViewInline = supportsInlinePdf();
+        
         return (
           <div className="space-y-4">
-            {showPdfViewer ? (
-              <div className="h-[600px] bg-white rounded-lg overflow-hidden">
+            {showPdfViewer && canViewInline ? (
+              <div className="h-[600px] bg-white rounded-lg overflow-hidden relative">
                 <iframe
-                  src={getPdfEmbedUrl(lesson.content)}
+                  src={getPdfEmbedUrl(pdfUrl)}
                   className="w-full h-full"
                   title={lesson.title}
                 />
+                <div className="absolute top-4 right-4 flex gap-2">
+                  <Button
+                    onClick={() => window.open(pdfUrl, '_blank')}
+                    className="bg-indigo-500/80 hover:bg-indigo-600 text-white text-sm"
+                    size="sm"
+                  >
+                    <ExternalLink className="w-4 h-4 mr-1" />
+                    Open in New Tab
+                  </Button>
+                </div>
               </div>
             ) : (
-              <div 
-                className="bg-white/5 rounded-lg overflow-hidden cursor-pointer group"
-                onClick={() => handlePdfClick(lesson)}
-              >
+              <div className="bg-white/5 rounded-lg overflow-hidden">
                 <div className="h-48 flex items-center justify-center bg-red-500/10">
                   <FileText className="w-16 h-16 text-red-400" />
                 </div>
-                <div className="p-4">
-                  <p className="text-white font-medium mb-1">{lesson.title}</p>
-                  <p className="text-indigo-300 text-sm bg-red-500/10 px-3 py-2 rounded inline-block">
+                <div className="p-6 space-y-4">
+                  <p className="text-white font-medium text-lg">{lesson.title}</p>
+                  <p className="text-indigo-300 text-sm">
                     <FileText className="w-4 h-4 inline mr-2" />
                     PDF Document
                   </p>
-                  <p className="text-indigo-400 text-sm mt-2 group-hover:text-indigo-300">Click to view PDF</p>
+                  <div className="flex gap-3">
+                    {canViewInline && (
+                      <Button
+                        onClick={() => handlePdfClick(lesson)}
+                        className="bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-300 border border-indigo-500/30"
+                      >
+                        <FileText className="w-4 h-4 mr-2" />
+                        View PDF
+                      </Button>
+                    )}
+                    <Button
+                      onClick={() => window.open(pdfUrl, '_blank')}
+                      className="bg-green-500/20 hover:bg-green-500/30 text-green-300 border border-green-500/30"
+                    >
+                      <ExternalLink className="w-4 h-4 mr-2" />
+                      Open PDF
+                    </Button>
+                  </div>
+                  {!canViewInline && (
+                    <p className="text-indigo-400 text-xs">
+                      PDF viewing is limited on mobile devices. Please use the Open PDF button.
+                    </p>
+                  )}
                 </div>
               </div>
             )}
@@ -905,22 +953,24 @@ export default function CourseViewer({ course: initialCourse, onBack, onEdit, on
 
                 {progress >= 100 && (
                   <div className="mt-4 space-y-4">
-                    {/* Show assessment button if course completed but assessment not taken or not passed */}
-                    {assessment && onSelectAssessment && (!assessmentPassed || assessmentPercentage < 90) && (
+                    {/* Show assessment button - always allow unlimited retakes */}
+                    {assessment && onSelectAssessment && (
                       <div className="p-4 bg-indigo-500/20 rounded-xl border border-indigo-500/30">
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-3">
                             <ClipboardCheck className="w-8 h-8 text-indigo-400" />
                             <div>
                               <p className="text-white font-medium">
-                                {assessmentPassed && assessmentPercentage < 90 
-                                  ? 'Assessment Passed - Need Higher Score' 
+                                {assessmentPassed 
+                                  ? `Last Score: ${assessmentPercentage.toFixed(0)}%` 
                                   : 'Ready for Assessment!'}
                               </p>
                               <p className="text-indigo-300 text-sm">
-                                {assessmentPassed && assessmentPercentage < 90
-                                  ? `You scored ${assessmentPercentage.toFixed(0)}%. Need 90% for certificate.`
-                                  : 'Complete the assessment to earn your certificate'}
+                                {assessmentPassed && assessmentPercentage >= 90
+                                  ? '🎉 You passed! You can retake to improve your score.'
+                                  : assessmentPassed
+                                    ? 'You passed but need 90% for certificate. Retake to improve!'
+                                    : 'Complete the assessment to earn your certificate'}
                               </p>
                               <p className="text-indigo-400 text-xs mt-1">
                                 {assessment.title} • {assessment.questions?.length || 0} questions • {assessment.duration} mins
@@ -931,13 +981,13 @@ export default function CourseViewer({ course: initialCourse, onBack, onEdit, on
                             onClick={() => assessment && onSelectAssessment?.(assessment)}
                             className="bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700"
                           >
-                            {assessmentPassed && assessmentPercentage < 90 ? 'Retake Assessment' : 'Start Assessment'}
+                            {assessmentPassed ? 'Retake Assessment' : 'Start Assessment'}
                           </Button>
                         </div>
                       </div>
                     )}
 
-                    {/* Show certificate ONLY if assessment passed with 90%+ AND certificate exists */}
+                    {/* Show certificate if assessment passed with 90%+ AND certificate exists */}
                     {assessment && assessmentPassed && assessmentPercentage >= 90 && certificate && (
                       <div className="p-4 bg-yellow-500/20 rounded-xl border border-yellow-500/30">
                         <div className="flex items-center justify-between">
@@ -945,7 +995,7 @@ export default function CourseViewer({ course: initialCourse, onBack, onEdit, on
                             <Award className="w-8 h-8 text-yellow-400" />
                             <div>
                               <p className="text-white font-medium">🎉 Certificate Earned!</p>
-                              <p className="text-indigo-300 text-sm">ID: {certificate.certificateNumber} • {assessmentPercentage.toFixed(0)}% Score</p>
+                              <p className="text-indigo-300 text-sm">ID: {certificate.certificateNumber} • Best Score: {assessmentPercentage.toFixed(0)}%</p>
                             </div>
                           </div>
                           <div className="flex gap-2">
@@ -1028,12 +1078,13 @@ export default function CourseViewer({ course: initialCourse, onBack, onEdit, on
                           key={lesson._id || lessonIndex} 
                           onClick={() => {
                             if (unlocked) {
+                              // Immediate UI feedback
                               setSelectedLesson(lesson);
                               setShowVideoPlayer(false);
                               setShowPdfViewer(false);
                             }
                           }} 
-                          className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-all ${
+                          className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-all active:scale-95 ${
                             !unlocked ? 'opacity-50 cursor-not-allowed' : 
                             isSelected ? 'bg-indigo-500 text-white' : 
                             'text-indigo-300 hover:bg-white/10'

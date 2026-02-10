@@ -124,12 +124,14 @@ export default function OrgSettings() {
       const reader = new FileReader();
       reader.onloadend = () => {
         const base64 = reader.result as string;
+        // Immediate UI update
+        setLogoPreview(base64);
         setSettings(prev => ({
           ...prev,
           organization: { ...prev.organization, logo: base64 }
         }));
-        setLogoPreview(base64);
         setHasChanges(true);
+        toast.success('Logo loaded! Click Save to apply changes.');
       };
       reader.readAsDataURL(file);
     }
@@ -149,12 +151,14 @@ export default function OrgSettings() {
       const reader = new FileReader();
       reader.onloadend = () => {
         const base64 = reader.result as string;
+        // Immediate UI update
+        setFaviconPreview(base64);
         setSettings(prev => ({
           ...prev,
           organization: { ...prev.organization, favicon: base64 }
         }));
-        setFaviconPreview(base64);
         setHasChanges(true);
+        toast.success('Favicon loaded! Click Save to apply changes.');
       };
       reader.readAsDataURL(file);
     }
@@ -206,16 +210,27 @@ export default function OrgSettings() {
     }
 
     setSaving(true);
+    // Optimistic update - show saving immediately
+    toast.info('Saving settings...', { duration: 1000 });
+    
     try {
       const response = await settingsAPI.update(settings);
       if (response.success) {
         toast.success('Settings saved successfully!');
         setHasChanges(false);
+        // Update with server response to ensure sync
         if (response.settings) {
           setSettings(prev => ({
             ...prev,
             ...response.settings
           }));
+          // Update previews immediately
+          if (response.settings.organization?.logo) {
+            setLogoPreview(response.settings.organization.logo);
+          }
+          if (response.settings.organization?.favicon) {
+            setFaviconPreview(response.settings.organization.favicon);
+          }
         }
       } else {
         throw new Error(response.message || 'Failed to save settings');
@@ -232,6 +247,9 @@ export default function OrgSettings() {
     if (hasChanges && !window.confirm('Are you sure you want to discard your changes?')) {
       return;
     }
+    // Immediate reset
+    setLogoPreview(null);
+    setFaviconPreview(null);
     fetchSettings();
     setHasChanges(false);
     toast.info('Settings reset to saved values');
@@ -482,7 +500,7 @@ export default function OrgSettings() {
           </div>
           <Switch
             checked={settings.email?.enableNotifications}
-            onCheckedChange={(checked) => {
+            onCheckedChange={(checked: boolean) => {
               setSettings(prev => ({
                 ...prev,
                 email: { ...prev.email, enableNotifications: checked }
@@ -506,16 +524,17 @@ export default function OrgSettings() {
               <p className="text-white font-medium">Require Course Approval</p>
               <p className="text-indigo-300 text-sm">Admin must approve courses before publishing</p>
             </div>
-            <Switch
-              checked={settings.learningPolicies?.requireCourseApproval}
-              onCheckedChange={(checked) => {
-                setSettings(prev => ({
-                  ...prev,
-                  learningPolicies: { ...prev.learningPolicies, requireCourseApproval: checked }
-                }));
-                setHasChanges(true);
-              }}
-            />
+          <Switch
+            checked={settings.learningPolicies?.requireCourseApproval}
+            onCheckedChange={(checked: boolean) => {
+              setSettings(prev => ({
+                ...prev,
+                learningPolicies: { ...prev.learningPolicies, requireCourseApproval: checked }
+              }));
+              setHasChanges(true);
+            }}
+          />
+
           </div>
 
           <div className="flex items-center justify-between p-4 bg-white/5 rounded-xl">
@@ -523,16 +542,17 @@ export default function OrgSettings() {
               <p className="text-white font-medium">Allow Self Enrollment</p>
               <p className="text-indigo-300 text-sm">Users can enroll in courses without approval</p>
             </div>
-            <Switch
-              checked={settings.learningPolicies?.allowSelfEnrollment}
-              onCheckedChange={(checked) => {
-                setSettings(prev => ({
-                  ...prev,
-                  learningPolicies: { ...prev.learningPolicies, allowSelfEnrollment: checked }
-                }));
-                setHasChanges(true);
-              }}
-            />
+          <Switch
+            checked={settings.learningPolicies?.allowSelfEnrollment}
+            onCheckedChange={(checked: boolean) => {
+              setSettings(prev => ({
+                ...prev,
+                learningPolicies: { ...prev.learningPolicies, allowSelfEnrollment: checked }
+              }));
+              setHasChanges(true);
+            }}
+          />
+
           </div>
         </div>
 
@@ -541,7 +561,7 @@ export default function OrgSettings() {
             <Label className="text-white mb-2 block">Default Course Visibility</Label>
             <Select
               value={settings.learningPolicies?.defaultCourseVisibility || 'public'}
-              onValueChange={(value) => {
+              onValueChange={(value: string) => {
                 setSettings(prev => ({
                   ...prev,
                   learningPolicies: { ...prev.learningPolicies, defaultCourseVisibility: value }
@@ -594,16 +614,17 @@ export default function OrgSettings() {
               <p className="text-white font-medium">Require Assessment Passing</p>
               <p className="text-indigo-300 text-sm">Users must pass assessments to complete courses</p>
             </div>
-            <Switch
-              checked={settings.learningPolicies?.requireAssessmentPassing}
-              onCheckedChange={(checked) => {
-                setSettings(prev => ({
-                  ...prev,
-                  learningPolicies: { ...prev.learningPolicies, requireAssessmentPassing: checked }
-                }));
-                setHasChanges(true);
-              }}
-            />
+          <Switch
+            checked={settings.learningPolicies?.requireAssessmentPassing}
+            onCheckedChange={(checked: boolean) => {
+              setSettings(prev => ({
+                ...prev,
+                learningPolicies: { ...prev.learningPolicies, requireAssessmentPassing: checked }
+              }));
+              setHasChanges(true);
+            }}
+          />
+
           </div>
 
           <div>
@@ -639,16 +660,17 @@ export default function OrgSettings() {
               <p className="text-white font-medium">Enable Gamification</p>
               <p className="text-indigo-300 text-sm">Award points and badges for achievements</p>
             </div>
-            <Switch
-              checked={settings.learningPolicies?.enableGamification}
-              onCheckedChange={(checked) => {
-                setSettings(prev => ({
-                  ...prev,
-                  learningPolicies: { ...prev.learningPolicies, enableGamification: checked }
-                }));
-                setHasChanges(true);
-              }}
-            />
+          <Switch
+            checked={settings.learningPolicies?.enableGamification}
+            onCheckedChange={(checked: boolean) => {
+              setSettings(prev => ({
+                ...prev,
+                learningPolicies: { ...prev.learningPolicies, enableGamification: checked }
+              }));
+              setHasChanges(true);
+            }}
+          />
+
           </div>
 
           <div className="flex items-center justify-between p-4 bg-white/5 rounded-xl">
@@ -656,16 +678,17 @@ export default function OrgSettings() {
               <p className="text-white font-medium">Show Leaderboard</p>
               <p className="text-indigo-300 text-sm">Display top learners on dashboard</p>
             </div>
-            <Switch
-              checked={settings.learningPolicies?.showLeaderboard}
-              onCheckedChange={(checked) => {
-                setSettings(prev => ({
-                  ...prev,
-                  learningPolicies: { ...prev.learningPolicies, showLeaderboard: checked }
-                }));
-                setHasChanges(true);
-              }}
-            />
+          <Switch
+            checked={settings.learningPolicies?.showLeaderboard}
+            onCheckedChange={(checked: boolean) => {
+              setSettings(prev => ({
+                ...prev,
+                learningPolicies: { ...prev.learningPolicies, showLeaderboard: checked }
+              }));
+              setHasChanges(true);
+            }}
+          />
+
           </div>
         </div>
       </div>
@@ -682,64 +705,68 @@ export default function OrgSettings() {
               <p className="text-white font-medium">Enable Certificates</p>
               <p className="text-indigo-300 text-sm">Allow users to earn certificates</p>
             </div>
-            <Switch
-              checked={settings.features?.enableCertificates}
-              onCheckedChange={(checked) => {
-                setSettings(prev => ({
-                  ...prev,
-                  features: { ...prev.features, enableCertificates: checked }
-                }));
-                setHasChanges(true);
-              }}
-            />
+          <Switch
+            checked={settings.features?.enableCertificates}
+            onCheckedChange={(checked: boolean) => {
+              setSettings(prev => ({
+                ...prev,
+                features: { ...prev.features, enableCertificates: checked }
+              }));
+              setHasChanges(true);
+            }}
+          />
+
           </div>
           <div className="flex items-center justify-between p-4 bg-white/5 rounded-xl">
             <div>
               <p className="text-white font-medium">Enable Knowledge Base</p>
               <p className="text-indigo-300 text-sm">Show knowledge base section</p>
             </div>
-            <Switch
-              checked={settings.features?.enableKnowledgeBase}
-              onCheckedChange={(checked) => {
-                setSettings(prev => ({
-                  ...prev,
-                  features: { ...prev.features, enableKnowledgeBase: checked }
-                }));
-                setHasChanges(true);
-              }}
-            />
+          <Switch
+            checked={settings.features?.enableKnowledgeBase}
+            onCheckedChange={(checked: boolean) => {
+              setSettings(prev => ({
+                ...prev,
+                features: { ...prev.features, enableKnowledgeBase: checked }
+              }));
+              setHasChanges(true);
+            }}
+          />
+
           </div>
           <div className="flex items-center justify-between p-4 bg-white/5 rounded-xl">
             <div>
               <p className="text-white font-medium">Enable Assessments</p>
               <p className="text-indigo-300 text-sm">Allow quizzes and tests</p>
             </div>
-            <Switch
-              checked={settings.features?.enableAssessments}
-              onCheckedChange={(checked) => {
-                setSettings(prev => ({
-                  ...prev,
-                  features: { ...prev.features, enableAssessments: checked }
-                }));
-                setHasChanges(true);
-              }}
-            />
+          <Switch
+            checked={settings.features?.enableAssessments}
+            onCheckedChange={(checked: boolean) => {
+              setSettings(prev => ({
+                ...prev,
+                features: { ...prev.features, enableAssessments: checked }
+              }));
+              setHasChanges(true);
+            }}
+          />
+
           </div>
           <div className="flex items-center justify-between p-4 bg-white/5 rounded-xl">
             <div>
               <p className="text-white font-medium">Enable Discussions</p>
               <p className="text-indigo-300 text-sm">Allow course discussions and comments</p>
             </div>
-            <Switch
-              checked={settings.features?.enableDiscussions}
-              onCheckedChange={(checked) => {
-                setSettings(prev => ({
-                  ...prev,
-                  features: { ...prev.features, enableDiscussions: checked }
-                }));
-                setHasChanges(true);
-              }}
-            />
+          <Switch
+            checked={settings.features?.enableDiscussions}
+            onCheckedChange={(checked: boolean) => {
+              setSettings(prev => ({
+                ...prev,
+                features: { ...prev.features, enableDiscussions: checked }
+              }));
+              setHasChanges(true);
+            }}
+          />
+
           </div>
         </div>
       </div>

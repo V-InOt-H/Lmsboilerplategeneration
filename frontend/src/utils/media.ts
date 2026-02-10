@@ -62,12 +62,26 @@ export function isPdfUrl(url: string): boolean {
 /**
  * Generate embed URL for PDF
  * @param url - PDF URL
- * @returns Google Docs viewer embed URL
+ * @returns Direct PDF URL for browser native viewer
  */
 export function getPdfEmbedUrl(url: string): string {
   if (!url) return '';
-  // Use Google Docs viewer for PDF embedding
-  return `https://docs.google.com/gview?embedded=1&url=${encodeURIComponent(url)}`;
+  // Use direct PDF URL - browsers have built-in PDF viewers
+  // This avoids third-party service restrictions
+  return url;
+}
+
+/**
+ * Check if browser supports inline PDF viewing
+ * @returns true if browser supports PDF embedding
+ */
+export function supportsInlinePdf(): boolean {
+  // Most modern browsers support PDF embedding
+  // Chrome, Firefox, Safari, Edge all support it
+  const ua = navigator.userAgent.toLowerCase();
+  // Mobile browsers often have issues with PDF embedding
+  const isMobile = /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini/.test(ua);
+  return !isMobile;
 }
 
 /**
@@ -154,4 +168,3 @@ export function getLessonThumbnail(type: string, content: string): { type: 'imag
       return { type: 'icon', value: 'file' };
   }
 }
-

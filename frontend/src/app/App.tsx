@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { AuthProvider, useAuth } from '../contexts/AuthContext';
 import { ErrorBoundary } from '../components/ui/ErrorBoundary';
+import { settingsAPI } from '../services/api';
 import Login from './components/auth/Login';
 import ForgotPassword from './components/auth/ForgotPassword';
 import ResetPassword from './components/auth/ResetPassword';
@@ -33,6 +34,39 @@ function AppContent() {
   const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [resetToken, setResetToken] = useState<string | null>(null);
   const [certificateId, setCertificateId] = useState<string | null>(null);
+
+  // Fetch and apply organization settings (favicon, title)
+  useEffect(() => {
+    const applyOrganizationSettings = async () => {
+      try {
+        const response = await settingsAPI.get();
+        if (response.settings?.organization) {
+          const { organization } = response.settings;
+          
+          // Update page title
+          if (organization.name) {
+            document.title = organization.name;
+          }
+          
+          // Update favicon
+          if (organization.favicon) {
+            let faviconLink = document.querySelector("link[rel*='icon']") as HTMLLinkElement;
+            if (!faviconLink) {
+              faviconLink = document.createElement('link');
+              faviconLink.rel = 'icon';
+              faviconLink.type = 'image/x-icon';
+              document.head.appendChild(faviconLink);
+            }
+            faviconLink.href = organization.favicon;
+          }
+        }
+      } catch (err) {
+        console.error('Failed to load organization settings:', err);
+      }
+    };
+    
+    applyOrganizationSettings();
+  }, []);
 
   // Check for reset password token or certificate URL in URL path
   useEffect(() => {
