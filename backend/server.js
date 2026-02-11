@@ -17,13 +17,39 @@ const app = express();
 const allowedOrigins = [
   "http://localhost:5173",
   "http://localhost:3000",
-  "https://zoho-learning-lms.web.app"
-];
+  "https://zoho-learning-lms.web.app",
+  process.env.FRONTEND_URL
+].filter(Boolean);
+
+// Helper function to check if origin is allowed
+const isOriginAllowed = (origin) => {
+  // Allow origins from the allowedOrigins array
+  if (allowedOrigins.includes(origin)) {
+    return true;
+  }
+  
+  // Allow all Render frontend URLs (pattern: https://*.onrender.com)
+  if (origin && origin.match(/^https:\/\/[a-zA-Z0-9-]+\.onrender\.com$/)) {
+    return true;
+  }
+  
+  // Allow localhost in development
+  if (origin && origin.startsWith('http://localhost')) {
+    return true;
+  }
+  
+  return false;
+};
 
 app.use(
   cors({
     origin: function (origin, callback) {
-      if (!origin || allowedOrigins.includes(origin)) {
+      // Allow requests with no origin (like mobile apps, curl, etc.)
+      if (!origin) {
+        return callback(null, true);
+      }
+      
+      if (isOriginAllowed(origin)) {
         callback(null, true);
       } else {
         console.log("❌ Blocked by CORS:", origin);
