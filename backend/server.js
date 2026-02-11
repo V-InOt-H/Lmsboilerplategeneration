@@ -1,96 +1,98 @@
 const express = require('express');
 const cors = require('cors');
-const dotenv = require('dotenv');
 const cookieParser = require('cookie-parser');
-const connectDB = require('./config/db');
-const bcrypt = require('bcryptjs');
 require('dotenv').config();
 
-// Connect to database
+const connectDB = require('./config/db');
+
+// Connect to MongoDB
 connectDB();
 
 const app = express();
 
-// Middleware
-// CORS configuration - allow requests from frontend
-const corsOptions = {
-  origin: function (origin, callback) {
-    // Allow requests with no origin (like mobile apps, curl, postman)
-    // or from localhost for development
-    // Also allow all Render and Firebase hosting URLs
-    
-    // Check if origin is allowed or if there's no origin
-    const isAllowedOrigin = 
-      !origin || // Allow no origin (mobile apps, curl, postman)
-      origin.startsWith('http://localhost') || // Allow all localhost
-      origin.includes('.onrender.com') || // Allow all Render apps
-      origin.includes('.firebaseapp.com') || // Allow Firebase
-      origin.includes('.web.app') || // Allow Firebase web apps
-      origin.includes('vercel.app'); // Allow Vercel apps
-    
-    if (isAllowedOrigin) {
-      callback(null, true);
-    } else {
-      console.log(`CORS: Blocking origin ${origin}`);
-      callback(new Error('Not allowed by CORS'));
-    }
-  },
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
-};
+/* =============================
+   CORS CONFIGURATION
+============================= */
 
-app.use(cors(corsOptions));
+const allowedOrigins = [
+  "http://localhost:5173",
+  "http://localhost:3000",
+  "https://zoho-learning-lms.web.app"
+];
+
+app.use(
+  cors({
+    origin: function (origin, callback) {
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        console.log("❌ Blocked by CORS:", origin);
+        callback(new Error("Not allowed by CORS"));
+      }
+    },
+    credentials: true,
+  })
+);
+
+/* =============================
+   MIDDLEWARE
+============================= */
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 
-// Auto-seed users on startup
-const seedUsers = async () => {
-  const User = require('./models/User.model');
-  
-  const testUsers = [
-    {
-      name: 'Admin User',
-      email: 'admin@zoho.com',
-      password: 'admin123',
-      role: 'Super Admin',
-      department: 'Administration'
-    },
-    {
-      name: 'Trainer User',
-      email: 'trainer@zoho.com',
-      password: 'trainer123',
-      role: 'Trainer',
-      department: 'Training'
-    },
-    {
-      name: 'Learner User',
-      email: 'learner@zoho.com',
-      password: 'learner123',
-      role: 'Learner',
-      department: 'Development'
-    }
-  ];
+/* =============================
+   DEVELOPMENT SEEDING
+============================= */
 
-  try {
-    for (const userData of testUsers) {
-      const existingUser = await User.findOne({ email: userData.email });
-      if (!existingUser) {
-        await User.create(userData);
-        console.log(`✅ Auto-seeded user: ${userData.email}`);
+if (process.env.NODE_ENV !== "production") {
+  const seedUsers = async () => {
+    try {
+      const User = require('./models/User.model');
+
+      const testUsers = [
+        {
+          name: "Admin User",
+          email: "admin@zoho.com",
+          password: "admin123",
+          role: "Super Admin",
+        },
+        {
+          name: "Trainer User",
+          email: "trainer@zoho.com",
+          password: "trainer123",
+          role: "Trainer",
+        },
+        {
+          name: "Learner User",
+          email: "learner@zoho.com",
+          password: "learner123",
+          role: "Learner",
+        },
+      ];
+
+      for (const userData of testUsers) {
+        const existingUser = await User.findOne({ email: userData.email });
+        if (!existingUser) {
+          await User.create(userData);
+          console.log(`✅ Seeded: ${userData.email}`);
+        }
       }
+
+      console.log("✅ Dev seeding complete");
+    } catch (error) {
+      console.log("⚠️ Seeding skipped:", error.message);
     }
-    console.log('✅ User seeding complete');
-  } catch (error) {
-    console.log('⚠️ User seeding skipped (DB may not be ready)');
-  }
-};
+  };
 
-// Call seeding after a short delay to ensure DB connection
-setTimeout(seedUsers, 1000);
+  setTimeout(seedUsers, 1000);
+}
 
-// Routes
+/* =============================
+   ROUTES
+============================= */
+
 app.use('/api/auth', require('./routes/auth.routes'));
 app.use('/api/users', require('./routes/user.routes'));
 app.use('/api/courses', require('./routes/course.routes'));
@@ -102,23 +104,36 @@ app.use('/api/settings', require('./routes/settings.routes'));
 app.use('/api/notifications', require('./routes/notification.routes'));
 app.use('/api/enrollments', require('./routes/enrollment.routes'));
 
-// Error handling middleware
-app.use((err, req, res, next) => {
-  console.error(err.stack);
-  res.status(err.status || 500).json({
-    success: false,
-    message: err.message || 'Internal Server Error'
+/* =============================
+   HEALTH CHECK
+============================= */
+
+app.get('/health', (req, res) => {
+  res.json({
+    success: true,
+    message: "Zoho LMS Backend is running",
   });
 });
 
-// Health check
-app.get('/health', (req, res) => {
-  res.json({ status: 'OK', message: 'Zoho LMS Backend is running' });
+/* =============================
+   ERROR HANDLER
+============================= */
+
+app.use((err, req, res, next) => {
+  console.error("❌ Error:", err.message);
+  res.status(err.status || 500).json({
+    success: false,
+    message: err.message || "Internal Server Error",
+  });
 });
+
+/* =============================
+   SERVER START
+============================= */
 
 const PORT = process.env.PORT || 5000;
 
 app.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);
-  console.log(`📚 Zoho Learning Management System`);
+  console.log(`📚 Zoho Learning Management System Backend`);
 });
