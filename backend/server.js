@@ -22,7 +22,10 @@ const corsOptions = {
       'http://localhost:5173',
       'http://localhost:5174',
       'http://127.0.0.1:5173',
-      'http://127.0.0.1:3000'
+      'http://127.0.0.1:3000',
+      // Render frontend URLs
+      'https://zoho-lms-frontend.onrender.com',
+      'https://your-frontend.onrender.com'
     ];
     
     // Check if origin is in allowed list or if no origin (mobile/curl)

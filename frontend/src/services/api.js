@@ -1,27 +1,11 @@
-// API Service for Backend Communication
-// Detect the API URL based on the current environment
-const getApiUrl = () => {
-  // If there's a VITE_API_URL environment variable, use it
-  if (import.meta.env.VITE_API_URL) {
-    return import.meta.env.VITE_API_URL;
-  }
-  
-  // Default to localhost:5000 for development
-  // Get the current host and port from the browser
-  const { protocol, hostname } = window.location;
-  
-  // For development, typically frontend runs on 5173, backend on 5000
-  // Check if we're running on the same port as backend
-  const backendPort = hostname === 'localhost' ? 5000 : 5000;
-  
-  return `${protocol}//${hostname}:${backendPort}/api`;
-};
-
-const API_URL = getApiUrl();
+const API_URL =
+  import.meta.env.VITE_API_URL ||
+  (import.meta.env.DEV ? "http://localhost:5000/api" : "https://learningmanagementsystem-0x2r.onrender.com/api");
 
 // Log API URL in development
 if (import.meta.env.DEV) {
   console.log('🔗 API URL:', API_URL);
+  console.log('⚠️ Using LOCAL backend - Make sure backend is running on port 5000');
 }
 
 // Get token from localStorage
@@ -320,3 +304,6 @@ export const notificationsAPI = {
   markAllAsRead: () => apiRequest('/notifications/read-all', { method: 'PUT' }),
   delete: (id) => apiRequest(`/notifications/${id}`, { method: 'DELETE' })
 };
+
+// Export apiRequest for use by other API modules
+export { apiRequest };

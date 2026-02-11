@@ -163,14 +163,19 @@ exports.getMe = async (req, res) => {
 // @access  Public
 exports.forgotPassword = async (req, res) => {
   try {
+    console.log('🔐 Forgot password request received for:', req.body.email);
+    
     const user = await User.findOne({ email: req.body.email });
 
     if (!user) {
+      console.log('❌ User not found:', req.body.email);
       return res.status(404).json({
         success: false,
         message: 'No user found with that email'
       });
     }
+
+    console.log('✅ User found:', user.name);
 
     // Generate reset token
     const resetToken = crypto.randomBytes(20).toString('hex');
@@ -185,10 +190,13 @@ exports.forgotPassword = async (req, res) => {
     user.resetPasswordExpire = Date.now() + 10 * 60 * 1000; // 10 minutes
 
     await user.save({ validateBeforeSave: false });
+    console.log('✅ Reset token saved to user');
 
     // Create reset url - frontend URL
     const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
     const resetUrl = `${frontendUrl}/reset-password/${resetToken}`;
+    
+    console.log('📧 Reset URL generated:', resetUrl);
 
     // Email HTML content
     const emailHtml = `

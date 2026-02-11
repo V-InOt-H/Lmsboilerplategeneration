@@ -437,28 +437,7 @@ exports.submitAssessment = async (req, res) => {
       }
     }
 
-    // Check if already passed
-    const alreadyPassed = await AssessmentResult.findOne({
-      assessment: assessment._id,
-      user: req.user.id,
-      passed: true
-    });
-
-    if (alreadyPassed) {
-      return res.status(400).json({
-        success: false,
-        message: 'You have already passed this assessment',
-        result: {
-          score: alreadyPassed.score,
-          totalPoints: alreadyPassed.totalPoints,
-          percentage: alreadyPassed.percentage,
-          passed: true,
-          attemptNumber: alreadyPassed.attemptNumber
-        }
-      });
-    }
-
-    // Check attempt count
+    // Check attempt count - allow unlimited retakes even if passed
     const previousAttempts = await AssessmentResult.countDocuments({
       assessment: assessment._id,
       user: req.user.id

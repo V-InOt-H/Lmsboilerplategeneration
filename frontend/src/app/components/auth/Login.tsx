@@ -101,20 +101,6 @@ export default function Login({ onForgotPassword }: LoginProps) {
     }
   };
 
-  const handleDemoLogin = async (demoEmail: string, demoPassword: string) => {
-    setError('');
-    setLoading(true);
-    try {
-      await login(demoEmail, demoPassword);
-      toast.success('Welcome!');
-    } catch {
-      setError('Demo account not found. Please register first.');
-      toast.error('Login failed');
-    } finally {
-      setLoading(false);
-    }
-  };
-
   return (
     <div className="size-full flex items-center justify-center bg-gradient-to-br from-slate-950 via-indigo-950 to-slate-900 p-6">
       <div className="w-full max-w-md">
@@ -251,7 +237,7 @@ export default function Login({ onForgotPassword }: LoginProps) {
           </form>
 
           {/* Toggle Register/Login */}
-          <div className="mt-4 text-center">
+          <div className="mt-6 text-center">
             <button
               type="button"
               onClick={() => {
@@ -267,39 +253,6 @@ export default function Login({ onForgotPassword }: LoginProps) {
               )}
             </button>
           </div>
-
-          {/* Demo Login Buttons */}
-          {!isRegistering && (
-            <div className="mt-6 p-4 bg-white/5 rounded-xl border border-white/10">
-              <p className="text-sm text-indigo-200 mb-3 font-medium text-center">Quick Demo Access:</p>
-              <div className="grid grid-cols-3 gap-2">
-                <button
-                  type="button"
-                  onClick={() => handleDemoLogin('admin@zoho.com', 'admin123')}
-                  disabled={loading}
-                  className="px-3 py-2 bg-indigo-600/50 hover:bg-indigo-600 text-white text-xs rounded-lg transition-colors disabled:opacity-50"
-                >
-                  Admin
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleDemoLogin('trainer@zoho.com', 'trainer123')}
-                  disabled={loading}
-                  className="px-3 py-2 bg-indigo-600/50 hover:bg-indigo-600 text-white text-xs rounded-lg transition-colors disabled:opacity-50"
-                >
-                  Trainer
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleDemoLogin('learner@zoho.com', 'learner123')}
-                  disabled={loading}
-                  className="px-3 py-2 bg-indigo-600/50 hover:bg-indigo-600 text-white text-xs rounded-lg transition-colors disabled:opacity-50"
-                >
-                  Learner
-                </button>
-              </div>
-            </div>
-          )}
 
           {/* Registration Benefits */}
           {isRegistering && (
