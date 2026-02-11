@@ -17,27 +17,22 @@ const corsOptions = {
   origin: function (origin, callback) {
     // Allow requests with no origin (like mobile apps, curl, postman)
     // or from localhost for development
-    const allowedOrigins = [
-      'http://localhost:3000',
-      'http://localhost:5173',
-      'http://localhost:5174',
-      'http://127.0.0.1:5173',
-      'http://127.0.0.1:3000',
-      // Render frontend URLs
-      'https://zoho-lms-frontend.onrender.com',
-      'https://your-frontend.onrender.com'
-    ];
+    // Also allow all Render and Firebase hosting URLs
     
-    // Check if origin is in allowed list or if no origin (mobile/curl)
-    if (!origin || allowedOrigins.includes(origin) || origin.startsWith('http://localhost:')) {
+    // Check if origin is allowed or if there's no origin
+    const isAllowedOrigin = 
+      !origin || // Allow no origin (mobile apps, curl, postman)
+      origin.startsWith('http://localhost') || // Allow all localhost
+      origin.includes('.onrender.com') || // Allow all Render apps
+      origin.includes('.firebaseapp.com') || // Allow Firebase
+      origin.includes('.web.app') || // Allow Firebase web apps
+      origin.includes('vercel.app'); // Allow Vercel apps
+    
+    if (isAllowedOrigin) {
       callback(null, true);
     } else {
-      // For production, only allow specific origins
-      if (process.env.NODE_ENV === 'production') {
-        callback(new Error('Not allowed by CORS'));
-      } else {
-        callback(null, true);
-      }
+      console.log(`CORS: Blocking origin ${origin}`);
+      callback(new Error('Not allowed by CORS'));
     }
   },
   credentials: true,
